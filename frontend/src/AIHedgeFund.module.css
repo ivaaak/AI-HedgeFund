@@ -1,0 +1,128 @@
+.container {
+  padding: 0rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.title {
+  text-align: center;
+  margin-bottom: 2rem;
+  color: #333;
+}
+
+.processFlow {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2rem;
+}
+
+.node {
+  padding: 1rem;
+  border-radius: 8px;
+  background: #f5f5f5;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.node.active {
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  transform: scale(1.05);
+}
+
+.start {
+  background: #e0e0e0;
+  padding: 1rem 2rem;
+}
+
+.analystsRow {
+  display: flex;
+  gap: 1rem;
+  width: 100%;
+  justify-content: space-between;
+}
+
+.analyst {
+  flex: 1;
+  background: #fff3e0;
+  min-width: 200px;
+}
+
+.analyst.active {
+  background: #ffcc80;
+}
+
+.riskManager {
+  background: #e8f5e9;
+  min-width: 300px;
+}
+
+.riskManager.active {
+  background: #a5d6a7;
+}
+
+.portfolioManager {
+  background: #e3f2fd;
+  min-width: 300px;
+}
+
+.portfolioManager.active {
+  background: #90caf9;
+}
+
+.actionsRow {
+  display: flex;
+  gap: 2rem;
+}
+
+.action {
+  padding: 1rem 2rem;
+  min-width: 150px;
+  text-align: center;
+}
+
+.buy {
+  background: #c8e6c9;
+}
+
+.buy.active {
+  background: #81c784;
+}
+
+.sell {
+  background: #ffcdd2;
+}
+
+.sell.active {
+  background: #e57373;
+}
+
+.hold {
+  background: #e3f2fd;
+}
+
+.hold.active {
+  background: #64b5f6;
+}
+
+.signal {
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+  padding: 0.5rem;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 4px;
+}
+
+.decision {
+  margin-top: 0.5rem;
+  font-weight: bold;
+  text-align: center;
+}
+
+.performanceChart {
+  margin-top: 3rem;
+  padding: 1rem;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
