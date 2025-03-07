@@ -10,36 +10,11 @@ import {
   Signal,
   Decision,
 } from './types';
-
-interface AnalystNodeProps {
-  type: AnalystType;
-  signal?: Signal;
-  isActive: boolean;
-}
-
-const AnalystNode: React.FC<AnalystNodeProps> = ({ type, signal, isActive }) => (
-  <div className={`${styles.node} ${styles.analyst} ${isActive ? styles.active : ''}`}>
-    <h3>{type.charAt(0).toUpperCase() + type.slice(1)} Analyst</h3>
-    {signal && (
-      <div className={styles.signal}>
-        <div>Signal: {signal.value.toFixed(2)}</div>
-        <div>Ticker: {signal.ticker}</div>
-        <div>Confidence: {signal.confidence.toFixed(1)}%</div>
-      </div>
-    )}
-  </div>
-);
-
-interface ActionNodeProps {
-  type: ActionType;
-  isActive: boolean;
-}
-
-const ActionNode: React.FC<ActionNodeProps> = ({ type, isActive }) => (
-  <div className={`${styles.node} ${styles.action} ${styles[type.toLowerCase()]} ${isActive ? styles.active : ''}`}>
-    {type}
-  </div>
-);
+import AnalystNode from './AnalystNode';
+import ActionNode from './ActionNode';
+import DataCollectionNode from './DataCollectionNode';
+import RiskManagerNode from './RiskManagerNode';
+import PortfolioManagerNode from './PortfolioManagerNode';
 
 const App: React.FC = () => {
   const [systemState, setSystemState] = useState<SystemState>({
@@ -219,8 +194,6 @@ const App: React.FC = () => {
 
   return (
     <div className={styles.container}>
-      {/* <h1 className={styles.title}>AI Hedge Fund System</h1> */}
-      
       <div className={styles.controlPanel}>
         <div className={styles.tickerControls}>
           <h3>Ticker Management</h3>
@@ -318,27 +291,22 @@ const App: React.FC = () => {
       )}
       
       <div className={styles.processFlowHorizontal}>
-        {/* <div className={styles.processSection}>
-          <div className={`${styles.node} ${styles.start}`}>
-            <span>Start</span>
-          </div>
-        </div> */}
-        
         <div className={styles.processSection}>
           <div className={styles.sectionTitle}>Data Collection</div>
           <div className={styles.sectionContainer}>
-            <div className={`${styles.node} ${styles.dataCollection} ${systemState.activeNodes.includes(NodeType.ANALYST) ? styles.active : ''}`}>
-              <h3>Financial Data Service</h3>
-              <div className={styles.serviceContent}>
-                <div>Tickers: {tickers.join(', ')}</div>
-                <div>Period: {startDate} to {endDate}</div>
-                {isLoading && <div className={styles.miniLoading}>Loading data...</div>}
-              </div>
-            </div>
+            <DataCollectionNode
+              isActive={systemState.activeNodes.includes(NodeType.ANALYST)}
+              tickers={tickers}
+              startDate={startDate}
+              endDate={endDate}
+              isLoading={isLoading}
+            />
           </div>
         </div>
         
-        <div className={styles.processArrow}>→</div>
+        <div className={styles.processConnection}>
+          <div className={styles.dataFlow}></div>
+        </div>
         
         <div className={styles.processSection}>
           <div className={styles.sectionTitle}>Analysis</div>
@@ -356,58 +324,37 @@ const App: React.FC = () => {
           </div>
         </div>
         
-        <div className={styles.processArrow}>→</div>
+        <div className={styles.processConnection}>
+          <div className={styles.dataFlow}></div>
+        </div>
         
         <div className={styles.processSection}>
           <div className={styles.sectionTitle}>Risk Management</div>
           <div className={styles.sectionContainer}>
-            <div className={`${styles.node} ${styles.riskManager} ${
-              systemState.activeNodes.includes(NodeType.RISK_MANAGER) ? styles.active : ''
-            }`}>
-              <h3>Risk Manager</h3>
-              {systemState.riskAssessment ? (
-                <div className={styles.signal}>
-                  <div>Risk Score: {systemState.riskAssessment.riskScore.toFixed(1)}</div>
-                  <div className={styles.factors}>
-                    <div>Risk Factors:</div>
-                    <ul>
-                      {systemState.riskAssessment.factors.map((factor, index) => (
-                        <li key={index}>{factor}</li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-              ) : (
-                <div className={styles.placeholder}>No risk assessment data</div>
-              )}
-            </div>
+            <RiskManagerNode
+              isActive={systemState.activeNodes.includes(NodeType.RISK_MANAGER)}
+              riskAssessment={systemState.riskAssessment}
+            />
           </div>
         </div>
         
-        <div className={styles.processArrow}>→</div>
+        <div className={styles.processConnection}>
+          <div className={styles.dataFlow}></div>
+        </div>
         
         <div className={styles.processSection}>
           <div className={styles.sectionTitle}>Portfolio Management</div>
           <div className={styles.sectionContainer}>
-            <div className={`${styles.node} ${styles.portfolioManager} ${
-              systemState.activeNodes.includes(NodeType.PORTFOLIO_MANAGER) ? styles.active : ''
-            }`}>
-              <h3>Portfolio Manager</h3>
-              {systemState.decision ? (
-                <div className={styles.decision}>
-                  <div>Action: {systemState.decision.action}</div>
-                  <div>Ticker: {systemState.decision.ticker}</div>
-                  <div>Quantity: {systemState.decision.quantity}</div>
-                  <div>Confidence: {systemState.decision.confidence.toFixed(1)}%</div>
-                </div>
-              ) : (
-                <div className={styles.placeholder}>No decision data</div>
-              )}
-            </div>
+            <PortfolioManagerNode
+              isActive={systemState.activeNodes.includes(NodeType.PORTFOLIO_MANAGER)}
+              decision={systemState.decision}
+            />
           </div>
         </div>
         
-        <div className={styles.processArrow}>→</div>
+        <div className={styles.processConnection}>
+          <div className={styles.dataFlow}></div>
+        </div>
         
         <div className={styles.processSection}>
           <div className={styles.sectionTitle}>Action</div>
