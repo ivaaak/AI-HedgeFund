@@ -1,0 +1,606 @@
+.container {
+  max-width: 100%;
+  margin: 0 auto;
+  padding: 20px;
+  font-family: Arial, sans-serif;
+  overflow-x: auto;
+  background-color: #121212;
+  color: #e0e0e0;
+  min-height: 100vh;
+}
+
+.title {
+  text-align: center;
+  margin-bottom: 30px;
+  color: #f0f0f0;
+}
+
+/* Control Panel Styles */
+.controlPanel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  margin-bottom: 30px;
+  padding: 20px;
+  background-color: #1e1e1e;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.tickerControls, .analysisControls {
+  flex: 1;
+  min-width: 300px;
+}
+
+.tickerControls h3, .analysisControls h3 {
+  color: #90caf9;
+  margin-bottom: 15px;
+}
+
+.tickerForm {
+  display: flex;
+  margin-bottom: 15px;
+}
+
+.tickerInput {
+  flex: 1;
+  padding: 8px;
+  border: 1px solid #444;
+  border-radius: 4px;
+  margin-right: 10px;
+  background-color: #2a2a2a;
+  color: #e0e0e0;
+}
+
+.addButton {
+  padding: 8px 15px;
+  background-color: #1976d2;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.addButton:hover {
+  background-color: #1565c0;
+}
+
+.tickerList {
+  border: 1px solid #444;
+  border-radius: 4px;
+  padding: 10px;
+  background-color: #1e1e1e;
+}
+
+.tickerList h4 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  color: #e0e0e0;
+}
+
+.tickerList ul {
+  list-style-type: none;
+  padding: 0;
+  margin: 0;
+}
+
+.tickerItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px 10px;
+  margin-bottom: 5px;
+  background-color: #333333;
+  border-radius: 4px;
+}
+
+.removeButton {
+  background-color: #c62828;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 10px;
+}
+
+.removeButton:hover {
+  background-color: #b71c1c;
+}
+
+.dateControls {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.dateControls label {
+  color: #e0e0e0;
+  margin-right: 5px;
+}
+
+.dateInput {
+  padding: 8px;
+  border: 1px solid #444;
+  border-radius: 4px;
+  background-color: #2a2a2a;
+  color: #e0e0e0;
+}
+
+.serviceSelector {
+  margin-bottom: 15px;
+}
+
+.serviceSelector label {
+  color: #e0e0e0;
+  margin-right: 5px;
+  display: block;
+  margin-bottom: 5px;
+}
+
+.serviceSelect {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #444;
+  border-radius: 4px;
+  background-color: #2a2a2a;
+  color: #e0e0e0;
+}
+
+.runControls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.runButton {
+  padding: 10px 20px;
+  background-color: #00897b;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.runButton:hover {
+  background-color: #00796b;
+}
+
+.autoRefresh {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #e0e0e0;
+}
+
+/* Error Styles */
+.errorBanner {
+  background-color: rgba(244, 67, 54, 0.2);
+  color: #ef5350;
+  border-radius: 4px;
+  padding: 10px 15px;
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.errorBanner button {
+  background-color: #ef5350;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 5px 10px;
+  cursor: pointer;
+}
+
+.loading, .error, .noData {
+  text-align: center;
+  padding: 30px;
+  font-size: 18px;
+}
+
+.loading {
+  color: #42a5f5;
+}
+
+.error {
+  color: #ef5350;
+  background-color: rgba(244, 67, 54, 0.1);
+  border-radius: 8px;
+  padding: 20px;
+  margin: 20px;
+}
+
+.noData {
+  color: #9e9e9e;
+  font-style: italic;
+}
+
+.miniLoading {
+  font-size: 12px;
+  color: #42a5f5;
+  font-style: italic;
+}
+
+/* Enhanced Horizontal Process Flow */
+.processFlowHorizontal {
+  display: flex;
+  align-items: center; /* Center vertically */
+  justify-content: flex-start;
+  overflow-x: auto;
+  padding: 30px 100px;
+  margin-bottom: 40px;
+  min-height: 400px;
+  background-color: #181818;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  position: relative;
+}
+
+.processSection {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 260px;
+  height: 320px; /* Fixed height for vertical centering */
+  margin: 0 5px;
+  position: relative;
+}
+
+.sectionTitle {
+  font-weight: bold;
+  margin-bottom: 15px;
+  color: #90caf9;
+  text-align: center;
+  width: 100%;
+  border-bottom: 1px solid #444;
+  padding-bottom: 5px;
+}
+
+.sectionContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+/* Animated Process Arrow */
+.processArrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  color: #1976d2;
+  margin: 0 10px;
+  width: 40px;
+  position: relative;
+  overflow: hidden;
+}
+
+.processArrow::after {
+  content: '→';
+  position: absolute;
+  animation: flowAnimation 1.5s infinite ease-in-out;
+}
+
+@keyframes flowAnimation {
+  0%, 100% {
+    transform: translateX(-15px);
+    opacity: 0;
+  }
+  50% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  99% {
+    transform: translateX(15px);
+    opacity: 0;
+  }
+}
+
+.analystsGrid, .actionsGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 15px;
+  width: 100%;
+}
+
+/* Enhanced Node Styles */
+.node {
+  padding: 15px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  background-color: #2a2a2a;
+  width: 100%;
+  transition: all 0.3s ease;
+  opacity: 0.8;
+  border: 2px solid transparent;
+  margin-bottom: 10px;
+  position: relative;
+  overflow: hidden;
+}
+
+.node.active {
+  opacity: 1;
+  border-color: #1976d2;
+  box-shadow: 0 4px 12px rgba(25, 118, 210, 0.5);
+  background-color: #333333;
+  animation: pulseNode 2s infinite alternate;
+}
+
+@keyframes pulseNode {
+  0% {
+    box-shadow: 0 4px 12px rgba(25, 118, 210, 0.3);
+  }
+  100% {
+    box-shadow: 0 4px 12px rgba(25, 118, 210, 0.7);
+  }
+}
+
+/* Hover info styles */
+.node::before {
+  content: attr(data-tooltip);
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.9);
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  padding: 15px;
+  border-radius: 8px;
+  z-index: 100;
+  box-sizing: border-box;
+  font-size: 12px;
+  text-align: left;
+  pointer-events: none;
+  overflow: auto;
+}
+
+.node:hover::before {
+  opacity: 1;
+}
+
+.dataCollection {
+  background-color: #263238;
+}
+
+.dataCollection.active {
+  animation: dataProcessing 3s infinite;
+  background-image: linear-gradient(45deg, #263238 25%, #37474f 25%, #37474f 50%, #263238 50%, #263238 75%, #37474f 75%, #37474f 100%);
+  background-size: 56.57px 56.57px;
+}
+
+@keyframes dataProcessing {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 56.57px 56.57px;
+  }
+}
+
+.analyst {
+  background-color: #1b5e20;
+  margin-bottom: 10px;
+}
+
+.analyst.active {
+  animation: analyzeData 2s infinite alternate;
+}
+
+@keyframes analyzeData {
+  0% {
+    background-color: #1b5e20;
+  }
+  100% {
+    background-color: #2e7d32;
+  }
+}
+
+.riskManager {
+  background-color: #4a148c;
+}
+
+.riskManager.active {
+  animation: assessRisk 3s infinite;
+  background-image: linear-gradient(45deg, #4a148c 25%, #6a1b9a 25%, #6a1b9a 50%, #4a148c 50%, #4a148c 75%, #6a1b9a 75%, #6a1b9a 100%);
+  background-size: 56.57px 56.57px;
+}
+
+@keyframes assessRisk {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 56.57px 56.57px;
+  }
+}
+
+.portfolioManager {
+  background-color: #0d47a1;
+}
+
+.portfolioManager.active {
+  animation: managePortfolio 2s infinite alternate;
+}
+
+@keyframes managePortfolio {
+  0% {
+    background-color: #0d47a1;
+  }
+  100% {
+    background-color: #1565c0;
+  }
+}
+
+.signal, .decision, .serviceContent {
+  font-size: 14px;
+  background-color: rgba(255, 255, 255, 0.05);
+  padding: 8px;
+  border-radius: 5px;
+  margin-top: 10px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.signal div, .decision div, .serviceContent div {
+  margin-bottom: 5px;
+}
+
+.factors ul {
+  margin-top: 5px;
+  margin-bottom: 0;
+  padding-left: 20px;
+}
+
+.action {
+  padding: 12px;
+  text-align: center;
+  font-weight: bold;
+  color: white;
+  width: 100%;
+  margin-bottom: 10px;
+  transition: all 0.3s ease;
+}
+
+.buy {
+  background-color: #2e7d32;
+}
+
+.buy.active {
+  animation: buyAction 2s infinite alternate;
+}
+
+@keyframes buyAction {
+  0% {
+    background-color: #2e7d32;
+  }
+  100% {
+    background-color: #43a047;
+  }
+}
+
+.sell {
+  background-color: #c62828;
+}
+
+.sell.active {
+  animation: sellAction 2s infinite alternate;
+}
+
+@keyframes sellAction {
+  0% {
+    background-color: #c62828;
+  }
+  100% {
+    background-color: #e53935;
+  }
+}
+
+.hold {
+  background-color: #f57c00;
+}
+
+.hold.active {
+  animation: holdAction 2s infinite alternate;
+}
+
+@keyframes holdAction {
+  0% {
+    background-color: #f57c00;
+  }
+  100% {
+    background-color: #fb8c00;
+  }
+}
+
+.action.active {
+  transform: scale(1.05);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
+}
+
+.analyst h3, .riskManager h3, .portfolioManager h3, .dataCollection h3 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  font-size: 16px;
+  text-align: center;
+  color: #e0e0e0;
+}
+
+.placeholder {
+  text-align: center;
+  color: #757575;
+  font-style: italic;
+  padding: 15px 0;
+}
+
+/* Performance Chart */
+.performanceChart {
+  background-color: #212121;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  margin-top: 20px;
+}
+
+.performanceChart h2 {
+  text-align: center;
+  margin-top: 0;
+  margin-bottom: 20px;
+  font-size: 18px;
+  color: #e0e0e0;
+}
+
+/* Ensure the chart text is readable */
+.performanceChart :global(.recharts-cartesian-axis-tick-value),
+.performanceChart :global(.recharts-tooltip-item-name),
+.performanceChart :global(.recharts-tooltip-item-value),
+.performanceChart :global(.recharts-default-tooltip) {
+  color: #e0e0e0 !important;
+}
+
+.performanceChart :global(.recharts-default-tooltip) {
+  background-color: #333333 !important;
+  border-color: #555555 !important;
+}
+
+/* Responsive styles */
+@media (max-width: 768px) {
+  .processFlowHorizontal {
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .processSection {
+    min-width: 100%;
+    margin-bottom: 20px;
+    height: auto;
+  }
+  
+  .processArrow {
+    transform: rotate(90deg);
+    margin: 10px 0;
+    height: 40px;
+    width: auto;
+  }
+  
+  .controlPanel {
+    flex-direction: column;
+  }
+}

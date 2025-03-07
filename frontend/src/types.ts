@@ -1,62 +1,85 @@
-export enum AnalystType {
-    VALUATION = 'valuation',
+// Node types
+export enum NodeType {
+    START = 'START',
+    ANALYST = 'ANALYST',
+    RISK_MANAGER = 'RISK_MANAGER',
+    PORTFOLIO_MANAGER = 'PORTFOLIO_MANAGER',
+    ACTION = 'ACTION'
+  }
+  
+  // Analyst types
+  export enum AnalystType {
+    FUNDAMENTAL = 'fundamental',
+    TECHNICAL = 'technical',
     SENTIMENT = 'sentiment',
-    FUNDAMENTALS = 'fundamentals',
-    TECHNICAL = 'technical'
-}
-
-export enum ActionType {
+    MACRO = 'macro'
+  }
+  
+  // Action types
+  export enum ActionType {
     BUY = 'BUY',
     SELL = 'SELL',
     HOLD = 'HOLD'
-}
-
-export enum NodeType {
-    START = 'start',
-    ANALYST = 'analyst',
-    RISK_MANAGER = 'risk',
-    PORTFOLIO_MANAGER = 'portfolio',
-    ACTION = 'action'
-}
-
-export interface Signal {
-    type: AnalystType;
-    value: number;
-    confidence: number;
-    timestamp: number;
-}
-
-export interface RiskAssessment {
-    riskScore: number;
+  }
+  
+  // Signal data
+  export interface Signal {
+    analyst: AnalystType;
+    ticker: string;
+    value: number;  // -1 to 1 (bearish to bullish)
+    confidence: number;  // 0 to 100
+  }
+  
+  // Risk assessment data
+  export interface RiskAssessment {
+    riskScore: number;  // 0 to 10
     factors: string[];
-    recommendations: string[];
-}
-
-export interface Decision {
+  }
+  
+  // Portfolio decision
+  export interface Decision {
     action: ActionType;
+    ticker: string;
+    quantity: number;
     confidence: number;
-    reasoning: string;
-    timestamp: number;
-}
-
-export interface PerformanceData {
+  }
+  
+  // Performance point
+  export interface PerformancePoint {
     timestamp: number;
     value: number;
-    change: number;
-}
-
-export interface SystemState {
+  }
+  
+  // Position details
+  export interface Position {
+    ticker: string;
+    shares: number;
+    avgPrice: number;
+    currentPrice: number;
+  }
+  
+  // Portfolio state
+  export interface Portfolio {
+    cash: number;
+    positions: Record<string, Position>;
+    value: number;
+    history: any[];
+  }
+  
+  // System state
+  export interface SystemState {
     activeNodes: NodeType[];
-    signals: {
-        [key in AnalystType]?: Signal;
-    };
+    signals: Record<AnalystType, Signal>;
     riskAssessment?: RiskAssessment;
     decision?: Decision;
-    performance: PerformanceData[];
-}
-
-export interface WebSocketMessage {
-    type: 'STATE_UPDATE' | 'ERROR' | 'SIGNAL' | 'DECISION';
-    payload: Partial<SystemState>;
-    timestamp: number;
-}
+    portfolio?: Portfolio;
+    performance: PerformancePoint[];
+  }
+  
+  // Portfolio decision from API
+  export interface PortfolioDecision {
+    action: 'buy' | 'sell' | 'hold';
+    quantity: number;
+    confidence: number;
+    reasoning: string;
+  }
