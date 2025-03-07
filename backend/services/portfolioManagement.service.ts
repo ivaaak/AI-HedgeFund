@@ -1,20 +1,31 @@
 import { ProgressService } from './progress.service';
 import { OpenAIService } from './openai.service';
-import { AgentState } from '../types/AgentState';
-import { AnalystSignal } from '../types/AnalystSignal';
-import { PortfolioDecision } from '../types/PortfolioDecision';
-import { RiskData } from '../types/RiskData';
+import { AgentState, AnalystSignal } from '../data/models';
 
+export interface PortfolioDecision {
+  action: 'buy' | 'sell' | 'hold';
+  quantity: number;
+  confidence: number;
+  reasoning: string;
+}
+
+export interface RiskData {
+  remaining_position_limit: number;
+  current_price: number;
+}
 
 export class PortfolioManagementService {
   private progressService: ProgressService;
   private openAIService: OpenAIService;
 
-  constructor() {
+  constructor(openAIApiKey?: string) {
     this.progressService = new ProgressService();
-    this.openAIService = new OpenAIService();
+    this.openAIService = new OpenAIService(openAIApiKey);
   }
 
+  /**
+   * Process analyst signals for a ticker
+   */
   private async processAnalystSignals(
     ticker: string,
     analystSignals: AgentState['data']['analyst_signals']
@@ -23,16 +34,39 @@ export class PortfolioManagementService {
     riskData: RiskData;
   }> {
     const signals: { [agent: string]: AnalystSignal } = {};
-    const riskData = analystSignals['risk_management_agent']?.[ticker] || {
+
+    // Create a default riskData object
+    const defaultRiskData: RiskData = {
       remaining_position_limit: 0,
       current_price: 0
+    };
+
+    // Check if we have risk management data for this ticker
+    const riskManagementAgent = analystSignals['risk_management_agent'];
+    const riskManagementData = riskManagementAgent ? riskManagementAgent[ticker] : undefined;
+
+    // Safely extract the required properties if they exist
+    const remaining_position_limit = riskManagementData && 'remaining_position_limit' in riskManagementData
+      ? Number(riskManagementData.remaining_position_limit)
+      : 0;
+
+    const current_price = riskManagementData && 'current_price' in riskManagementData
+      ? Number(riskManagementData.current_price)
+      : 0;
+
+    // Create a RiskData object with the extracted values
+    const riskData: RiskData = {
+      remaining_position_limit,
+      current_price
     };
 
     for (const [agent, agentSignals] of Object.entries(analystSignals)) {
       if (agent !== 'risk_management_agent' && ticker in agentSignals) {
         signals[agent] = {
           signal: agentSignals[ticker].signal,
-          confidence: agentSignals[ticker].confidence
+          confidence: agentSignals[ticker].confidence,
+          reasoning: null,
+          max_position_size: null
         };
       }
     }
@@ -40,10 +74,16 @@ export class PortfolioManagementService {
     return { signals, riskData };
   }
 
+  /**
+   * Calculate maximum shares that can be purchased based on position limit
+   */
   private calculateMaxShares(positionLimit: number, currentPrice: number): number {
     return currentPrice > 0 ? Math.floor(positionLimit / currentPrice) : 0;
   }
 
+  /**
+   * Generate prompt for OpenAI to make portfolio decisions
+   */
   private generatePromptTemplate(data: {
     signalsByTicker: { [ticker: string]: { [agent: string]: AnalystSignal } };
     currentPrices: { [ticker: string]: number };
@@ -74,9 +114,31 @@ export class PortfolioManagementService {
 
     Here is the current portfolio:
     Cash: ${data.portfolioCash.toFixed(2)}
-    Current Positions: ${JSON.stringify(data.portfolioPositions, null, 2)}`;
+    Current Positions: ${JSON.stringify(data.portfolioPositions, null, 2)}
+    
+    Output your final decisions in a JSON object with the ticker as the key and an object containing:
+    - action: "buy", "sell", or "hold"
+    - quantity: number of shares to buy or sell (0 for hold)
+    - confidence: your confidence level from 0-100
+    - reasoning: a brief explanation of your decision
+    
+    Format your response as valid JSON only, with no other text:
+    {
+      "decisions": {
+        "TICKER1": { 
+          "action": "buy|sell|hold", 
+          "quantity": number, 
+          "confidence": number, 
+          "reasoning": "string" 
+        },
+        ...more tickers
+      }
+    }`;
   }
 
+  /**
+   * Make a decision using OpenAI
+   */
   private async makeDecision(
     prompt: string,
     tickers: string[],
@@ -84,7 +146,7 @@ export class PortfolioManagementService {
   ): Promise<{ [ticker: string]: PortfolioDecision }> {
     for (let attempt = 0; attempt < maxRetries; attempt++) {
       try {
-        const result = await this.openAIService.getCompletion(prompt);
+        const result = await this.openAIService.getCompletion<{ decisions: { [ticker: string]: PortfolioDecision } }>(prompt);
         return result.decisions;
       } catch (error) {
         this.progressService.updateStatus(
@@ -92,7 +154,7 @@ export class PortfolioManagementService {
           null,
           `Error - retry ${attempt + 1}/${maxRetries}`
         );
-        
+
         if (attempt === maxRetries - 1) {
           // Return safe default on final attempt
           return tickers.reduce((acc, ticker) => {
@@ -110,12 +172,15 @@ export class PortfolioManagementService {
     throw new Error('Failed to make portfolio decision');
   }
 
+  /**
+   * Manage portfolio based on analysis signals
+   */
   public async managePortfolio(state: AgentState): Promise<{
-    messages: AgentState['messages'];
+    messages: any[];
     data: AgentState['data'];
   }> {
     const { portfolio, analyst_signals, tickers } = state.data;
-    
+
     this.progressService.updateStatus('portfolio_management_agent', null, 'Analyzing signals');
 
     const signalsByTicker: { [ticker: string]: { [agent: string]: AnalystSignal } } = {};
@@ -131,7 +196,7 @@ export class PortfolioManagementService {
       );
 
       const { signals, riskData } = await this.processAnalystSignals(ticker, analyst_signals);
-      
+
       signalsByTicker[ticker] = signals;
       currentPrices[ticker] = riskData.current_price;
       maxShares[ticker] = this.calculateMaxShares(
@@ -157,14 +222,14 @@ export class PortfolioManagementService {
     this.progressService.updateStatus(
       'portfolio_management_agent',
       null,
-      'Making trading decisions'
+      'Making trading decisions with OpenAI'
     );
 
     const decisions = await this.makeDecision(prompt, tickers);
 
     const message = {
       content: JSON.stringify(decisions),
-      name: 'portfolio_management'
+      name: 'portfolio_management_agent'
     };
 
     if (state.metadata.show_reasoning) {

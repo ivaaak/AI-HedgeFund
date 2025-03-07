@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { FundamentalsService } from '../services/fundamentals.service';
-import { AgentState } from '../types/AgentState';
+import { AgentState } from '../data/models';
 
 export class FundamentalsController {
     private fundamentalsService: FundamentalsService;

@@ -1,4 +1,4 @@
-import { CacheItem } from "../types/CacheData";
+import { CacheItem } from "./models";
 
 export class CacheService {
     private static instance: CacheService;

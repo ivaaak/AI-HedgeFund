@@ -1,65 +1,55 @@
-import OpenAI from 'openai';
-import type { ChatCompletionMessageParam } from 'openai/resources';
+import Claude from '@anthropic-ai/sdk';
+import MessageParam from '@anthropic-ai/sdk';
 import { FinancialMetrics, FundamentalAnalysis } from '../data/models';
 
-export class OpenAIService {
-  private openai: OpenAI;
+export class ClaudeApiService {
+  private claude: Claude;
 
   constructor(apiKey?: string) {
     // Use the provided API key, which should be handled by the calling application
     if (!apiKey) {
-      console.warn('No API key provided to OpenAIService. API calls will likely fail.');
+      console.warn('No API key provided to ClaudeApiService. API calls will likely fail.');
     }
     
-    this.openai = new OpenAI({
-      apiKey: apiKey || '',
-      dangerouslyAllowBrowser: true // Set this to true when using in browser environments
+    this.claude = new Claude({
+      apiKey: apiKey || ''
     });
   }
 
   /**
-   * Gets a completion from OpenAI
-   * @param prompt The text prompt to send to OpenAI
-   * @returns The parsed response from OpenAI
+   * Gets a completion from Claude
+   * @param prompt The text prompt to send to Claude
+   * @returns The parsed response from Claude
    */
   public async getCompletion<T>(prompt: string): Promise<T> {
     try {
-      const messages: ChatCompletionMessageParam[] = [
-        {
-          role: 'system',
-          content: 'You are a financial analyst assistant providing analysis in JSON format. Always structure your response as valid JSON that can be parsed.'
-        },
-        { 
-          role: 'user', 
-          content: prompt 
-        }
-      ];
-
-      const response = await this.openai.chat.completions.create({
-        model: 'gpt-4',
+      const response = await this.claude.messages.create({
+        model: 'claude-3-7-sonnet-20250219',
+        max_tokens: 4000,
         temperature: 0.2,
-        messages: messages
+        system: `You are a financial analyst assistant providing analysis in JSON format. Always structure your response as valid JSON that can be parsed.`,
+        messages: [{ role: 'user', content: prompt }]
       });
 
       // Extract the JSON from the response
-      const content = response.choices[0].message.content || '';
+      const content = response.content[0].type;
       const jsonMatch = content.match(/```json\n([\s\S]*?)\n```/) || 
                         content.match(/{[\s\S]*?}/);
                         
       if (!jsonMatch) {
-        throw new Error('Failed to extract JSON from OpenAI response');
+        throw new Error('Failed to extract JSON from Claude response');
       }
       
       const jsonStr = jsonMatch[1] || jsonMatch[0];
       return JSON.parse(jsonStr) as T;
     } catch (error) {
-      console.error('OpenAI API Error:', error);
+      console.error('Claude API Error:', error);
       throw error;
     }
   }
 
   /**
-   * Analyze fundamentals with OpenAI
+   * Analyze fundamentals with Claude
    * @param metrics Financial metrics to analyze
    * @returns Fundamental analysis result
    */
@@ -69,7 +59,7 @@ export class OpenAIService {
     try {
       return await this.getCompletion<FundamentalAnalysis>(prompt);
     } catch (error) {
-      console.error('OpenAI Fundamental Analysis Error:', error);
+      console.error('Claude Fundamental Analysis Error:', error);
       throw error;
     }
   }
@@ -143,7 +133,7 @@ export class OpenAIService {
   }
 
   /**
-   * Get portfolio allocation suggestions from OpenAI
+   * Get portfolio allocation suggestions from Claude
    * @param currentPortfolio Current portfolio data
    * @param fundamentalAnalyses Fundamental analyses for tickers
    * @returns Suggested portfolio allocation changes
@@ -177,41 +167,29 @@ export class OpenAIService {
     try {
       return await this.getCompletion(prompt);
     } catch (error) {
-      console.error('OpenAI Portfolio Suggestion Error:', error);
+      console.error('Claude Portfolio Suggestion Error:', error);
       throw error;
     }
   }
 
   /**
-   * Get a chat completion from OpenAI
-   * @param messages Array of messages to send to OpenAI
-   * @returns OpenAI's response
+   * Get a chat completion from Claude
+   * @param messages Array of messages to send to Claude
+   * @returns Claude's response
    */
-  public async getChatCompletion(messages: Array<{role: string, content: string}>): Promise<string> {
+  public async getChatCompletion(messages: Array<{role: 'user' | 'assistant', content: string}>): Promise<string> {
     try {
-      // Format the messages to include a system message if one doesn't exist
-      const hasSystemMessage = messages.some(msg => msg.role === 'system');
-      
-      // Need to cast messages to the specific type expected by OpenAI SDK
-      const formattedMessages: ChatCompletionMessageParam[] = hasSystemMessage 
-        ? messages as ChatCompletionMessageParam[]
-        : [
-            {
-              role: 'system',
-              content: 'You are a financial analysis assistant helping with stock market analysis and portfolio management.'
-            },
-            ...messages
-          ] as ChatCompletionMessageParam[];
-      
-      const response = await this.openai.chat.completions.create({
-        model: 'gpt-4',
+      const response = await this.claude.messages.create({
+        model: 'claude-3-7-sonnet-20250219',
+        max_tokens: 4000,
         temperature: 0.2,
-        messages: formattedMessages
+        system: `You are a financial analysis assistant helping with stock market analysis and portfolio management.`,
+        messages: messages
       });
       
-      return response.choices[0].message.content || '';
+      return response.content[0].type;
     } catch (error) {
-      console.error('OpenAI Chat API Error:', error);
+      console.error('Claude Chat API Error:', error);
       throw error;
     }
   }

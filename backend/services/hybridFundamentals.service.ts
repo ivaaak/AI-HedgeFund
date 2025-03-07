@@ -1,21 +1,19 @@
 import { ProgressService } from './progress.service';
 import { ApiService } from './api.service';
-import { AnalysisMessage, FundamentalAnalysis, Signal, FinancialMetrics, AgentState } from '../data/models';
+import { OpenAIService } from './openai.service';
+import { AgentState, AnalysisMessage, FundamentalAnalysis, FinancialMetrics, Signal } from '../data/models';
 
-export interface GetFinancialMetricsParams {
-  ticker: string;
-  endDate: string;
-  period: 'ttm' | 'quarterly' | 'annual';
-  limit: number;
-}
-
-export class FundamentalsService {
+export class HybridFundamentalsService {
   private progressService: ProgressService;
   private apiService: ApiService;
+  private openAIService: OpenAIService;
+  private useAI: boolean;
 
-  constructor() {
+  constructor(useAI: boolean = false, openAIApiKey?: string) {
     this.progressService = new ProgressService();
     this.apiService = new ApiService();
+    this.openAIService = new OpenAIService(openAIApiKey);
+    this.useAI = useAI;
   }
 
   /**
@@ -52,44 +50,20 @@ export class FundamentalsService {
         // Pull the most recent financial metrics
         const metrics = financialMetrics[0];
 
-        // Initialize signals list for different fundamental aspects
-        const signals: string[] = [];
-        const reasoning: Record<string, Signal> = {};
+        // Choose analysis method based on configuration
+        let analysis: FundamentalAnalysis;
+        
+        if (this.useAI) {
+          // Use OpenAI for analysis
+          this.progressService.updateStatus('fundamentals_agent', ticker, 'Analyzing with OpenAI');
+          analysis = await this.openAIService.analyzeFundamentals(metrics);
+        } else {
+          // Use rule-based analysis
+          this.progressService.updateStatus('fundamentals_agent', ticker, 'Analyzing with rules-based approach');
+          analysis = await this.performRuleBasedAnalysis(metrics);
+        }
 
-        // 1. Profitability Analysis
-        this.progressService.updateStatus('fundamentals_agent', ticker, 'Analyzing profitability');
-        const profitabilitySignal = this.analyzeProfitability(metrics);
-        signals.push(profitabilitySignal.signal);
-        reasoning['profitability_signal'] = profitabilitySignal;
-
-        // 2. Growth Analysis
-        this.progressService.updateStatus('fundamentals_agent', ticker, 'Analyzing growth');
-        const growthSignal = this.analyzeGrowth(metrics);
-        signals.push(growthSignal.signal);
-        reasoning['growth_signal'] = growthSignal;
-
-        // 3. Financial Health
-        this.progressService.updateStatus('fundamentals_agent', ticker, 'Analyzing financial health');
-        const healthSignal = this.analyzeFinancialHealth(metrics);
-        signals.push(healthSignal.signal);
-        reasoning['financial_health_signal'] = healthSignal;
-
-        // 4. Price to X ratios
-        this.progressService.updateStatus('fundamentals_agent', ticker, 'Analyzing valuation ratios');
-        const priceRatiosSignal = this.analyzePriceRatios(metrics);
-        signals.push(priceRatiosSignal.signal);
-        reasoning['price_ratios_signal'] = priceRatiosSignal;
-
-        // Determine overall signal
-        this.progressService.updateStatus('fundamentals_agent', ticker, 'Calculating final signal');
-        const { signal, confidence } = this.calculateOverallSignal(signals);
-
-        fundamentalAnalysis[ticker] = {
-          signal,
-          confidence,
-          reasoning
-        };
-
+        fundamentalAnalysis[ticker] = analysis;
         this.progressService.updateStatus('fundamentals_agent', ticker, 'Done');
       } catch (error) {
         this.progressService.updateStatus('fundamentals_agent', ticker, `Error: ${(error as Error).message}`);
@@ -110,6 +84,44 @@ export class FundamentalsService {
     return {
       messages: [message],
       data
+    };
+  }
+
+  /**
+   * Performs rule-based fundamental analysis
+   */
+  private async performRuleBasedAnalysis(metrics: FinancialMetrics): Promise<FundamentalAnalysis> {
+    // Initialize signals list for different fundamental aspects
+    const signals: string[] = [];
+    const reasoning: Record<string, Signal> = {};
+
+    // 1. Profitability Analysis
+    const profitabilitySignal = this.analyzeProfitability(metrics);
+    signals.push(profitabilitySignal.signal);
+    reasoning['profitability_signal'] = profitabilitySignal;
+
+    // 2. Growth Analysis
+    const growthSignal = this.analyzeGrowth(metrics);
+    signals.push(growthSignal.signal);
+    reasoning['growth_signal'] = growthSignal;
+
+    // 3. Financial Health
+    const healthSignal = this.analyzeFinancialHealth(metrics);
+    signals.push(healthSignal.signal);
+    reasoning['financial_health_signal'] = healthSignal;
+
+    // 4. Price to X ratios
+    const priceRatiosSignal = this.analyzePriceRatios(metrics);
+    signals.push(priceRatiosSignal.signal);
+    reasoning['price_ratios_signal'] = priceRatiosSignal;
+
+    // Determine overall signal
+    const { signal, confidence } = this.calculateOverallSignal(signals);
+
+    return {
+      signal,
+      confidence,
+      reasoning
     };
   }
 

@@ -1,6 +1,6 @@
 import { NextFunction } from "express";
-import { AgentState } from "./state";
-import { AgentStateService } from "../services/agent-state.service";
+import { AgentStateService } from "../services/agentstate.service";
+import { AgentState } from "./models";
 
 
 export const agentStateMiddleware = (

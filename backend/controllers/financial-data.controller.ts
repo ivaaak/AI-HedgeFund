@@ -1,6 +1,6 @@
 // src/controllers/financial-data.controller.ts
 import { Request, Response } from 'express';
-import { FinancialDataService } from '../services/openai.service';
+import { FinancialDataService } from '../services/financialdata.service';
 
 export class FinancialDataController {
   private service: FinancialDataService;

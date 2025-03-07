@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { FinancialMetrics } from '../types/FinancialMetrics';
+import { FinancialMetrics } from '../data/models';
 
 export interface GetFinancialMetricsParams {
   ticker: string;

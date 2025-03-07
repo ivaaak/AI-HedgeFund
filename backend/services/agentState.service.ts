@@ -1,4 +1,4 @@
-import { AgentState, BaseMessage } from "../data/state";
+import { AgentState, AnalysisMessage, BaseMessage, Portfolio } from "../data/models";
 
 export class AgentStateService {
     /**
@@ -70,12 +70,23 @@ export class AgentStateService {
     }
 
     /**
-     * Creates a new agent state
+     * Creates a new agent state with required default properties
      */
     public createAgentState(): AgentState {
+        // Initialize with required default properties to satisfy TypeScript
         return {
             messages: [],
-            data: {},
+            data: {
+                tickers: [],
+                start_date: '',
+                end_date: '',
+                portfolio: {
+                    cash: 0,
+                    positions: {},
+                    history: []
+                },
+                analyst_signals: {}
+            },
             metadata: {}
         };
     }
@@ -86,12 +97,30 @@ export class AgentStateService {
     public updateAgentState(
         currentState: AgentState,
         newMessages: BaseMessage[] = [],
-        newData: Record<string, any> = {},
+        newData: Partial<AgentState> = {},
         newMetadata: Record<string, any> = {}
     ): AgentState {
+        // Convert BaseMessage[] to AnalysisMessage[] by ensuring name property
+        const convertedMessages: AnalysisMessage[] = newMessages.map(msg => {
+            if ('name' in msg && typeof msg.name === 'string') {
+                return msg as AnalysisMessage;
+            }
+            // Add name property if it's missing
+            return {
+                ...msg,
+                name: 'unknown'
+            };
+        });
+
+        // Merge data while ensuring required properties
+        const mergedData = {
+            ...currentState.data,
+            ...newData
+        };
+
         return {
-            messages: [...currentState.messages, ...newMessages],
-            data: this.mergeDicts(currentState.data, newData),
+            messages: [...currentState.messages, ...convertedMessages],
+            data: mergedData,
             metadata: this.mergeDicts(currentState.metadata, newMetadata)
         };
     }

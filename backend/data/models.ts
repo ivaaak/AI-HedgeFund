@@ -1,3 +1,16 @@
+// Cache
+export interface CacheData {
+    [key: string]: any;
+}
+
+export interface CacheItem {
+    time?: string;
+    report_period?: string;
+    filing_date?: string;
+    date?: string;
+    [key: string]: any;
+}
+
 // Price Models
 export interface Price {
     open: number;
@@ -114,16 +127,34 @@ export interface CompanyNewsResponse {
     news: CompanyNews[];
 }
 
-// Portfolio Models
+/**
+ * Interface for portfolio position
+ */
 export interface Position {
-    cash: number;
     shares: number;
-    ticker: string;
+    avg_price: number;
+    current_price: number;
 }
 
+/**
+ * Interface for transaction history
+ */
+export interface TradeRecord {
+    date: string;
+    ticker: string;
+    action: string;
+    quantity: number;
+    price: number;
+    total: number;
+}
+
+/**
+ * Unified interface for portfolio
+ */
 export interface Portfolio {
-    positions: { [ticker: string]: Position };
-    total_cash: number;
+    cash: number;
+    positions: Record<string, Position>;
+    history: TradeRecord[];
 }
 
 // Analyst Models
@@ -139,18 +170,49 @@ export interface TickerAnalysis {
     analyst_signals: { [agent: string]: AnalystSignal };
 }
 
-// Agent State Models
-export interface AgentStateData {
-    tickers: string[];
-    portfolio: Portfolio;
-    start_date: string;
-    end_date: string;
-    ticker_analyses: { [ticker: string]: TickerAnalysis };
+// Signal used for each fundamental component analysis
+export interface Signal {
+    signal: string;
+    details: string;
 }
 
-export interface AgentStateMetadata {
-    show_reasoning: boolean;
-    [key: string]: any; // Allow additional fields
+// Fundamental Analysis result for a ticker
+export interface FundamentalAnalysis {
+    signal: string;
+    confidence: number;
+    reasoning: Record<string, Signal>;
+}
+
+// Message structure for agent communication
+export interface AnalysisMessage {
+    content: string;
+    name: string;
+}
+
+export interface BaseMessage {
+    content: string;
+    name?: string;
+}
+
+// Agent State structure
+export interface AgentState {
+    messages: AnalysisMessage[];
+    data: {
+        tickers: string[];
+        start_date: string;
+        end_date: string;
+        portfolio: Portfolio;
+        analyst_signals: {
+            [agent: string]: {
+                [ticker: string]: FundamentalAnalysis;
+            };
+        };
+        [key: string]: any; // Allow additional fields
+    };
+    metadata: {
+        show_reasoning?: boolean;
+        [key: string]: any; // Allow additional fields
+    };
 }
 
 // Type Guards

@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
-import { PortfolioManagementService } from '../services/portfolio-management.service';
-import { AgentState } from '../types/AgentState';
+import { PortfolioManagementService } from '../services/portfoliomanagement.service';
+import { AgentState } from '../data/models';
 
 export class PortfolioManagementController {
   private portfolioService: PortfolioManagementService;
