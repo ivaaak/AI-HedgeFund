@@ -1,26 +1,26 @@
 import React, { useState, useRef, useEffect } from 'react';
 import styles from './ProcessFlow.module.css';
-import { Decision } from './types';
+import { ActionType, Decision } from './types';
 
 interface PortfolioManagerNodeProps {
   isActive: boolean;
   decision?: Decision;
   portfolioMetrics?: {
-    allocation: Array<{ticker: string, percentage: number}>;
+    allocation: Array<{ ticker: string, percentage: number }>;
     performance: number;
     drawdown: number;
   };
 }
 
-const PortfolioManagerNode: React.FC<PortfolioManagerNodeProps> = ({ 
-  isActive, 
+const PortfolioManagerNode: React.FC<PortfolioManagerNodeProps> = ({
+  isActive,
   decision,
   portfolioMetrics
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showTooltip, setShowTooltip] = useState(false);
   const tooltipTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  
+
   // Cleanup tooltip timeout on unmount
   useEffect(() => {
     return () => {
@@ -29,7 +29,7 @@ const PortfolioManagerNode: React.FC<PortfolioManagerNodeProps> = ({
       }
     };
   }, []);
-  
+
   const toggleExpand = (e: React.MouseEvent) => {
     if (!(e.target as HTMLElement).closest(`.${styles.infoButton}`)) {
       setIsExpanded(!isExpanded);
@@ -44,9 +44,21 @@ const PortfolioManagerNode: React.FC<PortfolioManagerNodeProps> = ({
     { ticker: 'Cash', percentage: 25 }
   ];
 
+  const mockDecisions: Decision =
+  {
+    action: ActionType.BUY,
+    ticker: 'AAPL',
+    quantity: 15,
+    confidence: 0.87
+  };
+
+  if (!decision) {
+    decision = mockDecisions;
+  }
+
   return (
     <div className={styles.nodeWrapper}>
-      <div 
+      <div
         className={`${styles.node} ${styles.portfolioManager} ${isActive ? styles.active : ''} ${isExpanded ? styles.expanded : ''}`}
         onClick={toggleExpand}
       >
@@ -54,10 +66,10 @@ const PortfolioManagerNode: React.FC<PortfolioManagerNodeProps> = ({
           <div className={styles.headerLeft}>
             <h3>Portfolio Manager</h3>
             {isActive && <span className={styles.statusIndicator}></span>}
-            <button 
-              className={styles.infoButton} 
+            <button
+              className={styles.infoButton}
               aria-label="Node Information"
-              onClick={(e) => { 
+              onClick={(e) => {
                 e.stopPropagation();
                 setShowTooltip(!showTooltip);
               }}
@@ -99,28 +111,30 @@ const PortfolioManagerNode: React.FC<PortfolioManagerNodeProps> = ({
               </div>
             </button>
           </div>
-          <button 
+          <button
             className={styles.expandButton}
-            onClick={(e) => { 
-              e.stopPropagation(); 
-              setIsExpanded(!isExpanded); 
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsExpanded(!isExpanded);
             }}
           >
             {isExpanded ? '−' : '+'}
           </button>
         </div>
-        
-        {decision ? (
+
+        {mockDecisions ? (
           <div className={styles.decision}>
-            <div className={`${styles.actionBadge} ${styles[decision.action.toLowerCase()]}`}>
-              {decision.action}
+            <div className={styles.decisionRow}> Decision :
+              <div className={`${styles.actionBadge} ${styles[decision.action.toLowerCase()]}`}>
+                {decision.action}
+              </div>
             </div>
             <div className={styles.decisionDetails}>
               <div>Ticker: <strong>{decision.ticker}</strong></div>
               <div>Quantity: <strong>{decision.quantity}</strong></div>
               <div>Confidence: <strong>{decision.confidence.toFixed(1)}%</strong></div>
             </div>
-            
+
             {isExpanded && (
               <div className={styles.expandedContent}>
                 <div className={styles.portfolioAllocation}>
@@ -133,7 +147,7 @@ const PortfolioManagerNode: React.FC<PortfolioManagerNodeProps> = ({
                           <span>{item.percentage}%</span>
                         </div>
                         <div className={styles.allocationBarContainer}>
-                          <div 
+                          <div
                             className={styles.allocationBar}
                             style={{ width: `${item.percentage}%` }}
                           ></div>
@@ -168,7 +182,7 @@ const PortfolioManagerNode: React.FC<PortfolioManagerNodeProps> = ({
                           <span>{item.percentage}%</span>
                         </div>
                         <div className={styles.allocationBarContainer}>
-                          <div 
+                          <div
                             className={styles.allocationBar}
                             style={{ width: `${item.percentage}%` }}
                           ></div>
@@ -182,7 +196,7 @@ const PortfolioManagerNode: React.FC<PortfolioManagerNodeProps> = ({
           </div>
         )}
       </div>
-      
+
       {isActive && <div className={styles.flowIndicator}></div>}
     </div>
   );

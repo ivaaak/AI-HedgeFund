@@ -269,13 +269,13 @@ const RiskManagerNode: React.FC<RiskManagerNodeProps> = ({
         </div>
         
         <div className={styles.riskContent}>
-          <div className={styles.riskGauge}>
+          <div className={styles.riskGauge}> Calculated Risk : 
             <div className={`${styles.riskIndicator} ${styles[getRiskLevel()]}`}>
               {getRiskScore().toFixed(1)}
             </div>
           </div>
           
-          <div className={styles.riskFactors}>
+          <div className={styles.riskFactors}> Found risk factors:
             {getRiskFactors().map((factor, index) => (
               <div key={index} className={styles.factor}>• {factor}</div>
             ))}
