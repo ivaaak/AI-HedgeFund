@@ -1,6 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import styles from './ProcessFlow.module.css';
-import NodeTooltip from './NodeTooltip';
 import { ActionType } from './types';
 
 interface ActionNodeProps {
@@ -17,19 +16,23 @@ const ActionNode: React.FC<ActionNodeProps> = ({
   history = []
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [showTooltip, setShowTooltip] = useState(false);
+  const tooltipTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
-  const toggleExpand = () => {
-    setIsExpanded(!isExpanded);
+  // Cleanup tooltip timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (tooltipTimeoutRef.current) {
+        clearTimeout(tooltipTimeoutRef.current);
+      }
+    };
+  }, []);
+  
+  const toggleExpand = (e: React.MouseEvent) => {
+    if (!(e.target as HTMLElement).closest(`.${styles.infoButton}`)) {
+      setIsExpanded(!isExpanded);
+    }
   };
-
-  // Create tooltip content based on action type
-  const tooltipContent = `
-    Action: ${type}
-    Execution: Trade execution system
-    Impact: ${type === 'BUY' ? 'Increases' : type === 'SELL' ? 'Decreases' : 'Maintains'} portfolio exposure
-    Triggers: Order placement in trading system
-    Constraints: Subject to risk limits and portfolio rules
-  `;
 
   // Sample action history if not provided
   const actionHistory = history.length > 0 ? history : [
@@ -44,8 +47,54 @@ const ActionNode: React.FC<ActionNodeProps> = ({
         className={`${styles.node} ${styles.action} ${styles[type.toLowerCase()]} ${isActive ? styles.active : ''} ${isExpanded ? styles.expanded : ''}`}
         onClick={toggleExpand}
       >
-        <div className={styles.actionContent}>
+        <div className={styles.actionHeader}>
           <div className={styles.actionType}>{type}</div>
+          <button 
+            className={styles.infoButton} 
+            aria-label="Action Information"
+            onClick={(e) => { 
+              e.stopPropagation();
+              setShowTooltip(!showTooltip);
+            }}
+            onMouseEnter={() => {
+              if (tooltipTimeoutRef.current) {
+                clearTimeout(tooltipTimeoutRef.current);
+              }
+              setShowTooltip(true);
+            }}
+            onMouseLeave={() => {
+              tooltipTimeoutRef.current = setTimeout(() => {
+                setShowTooltip(false);
+              }, 300);
+            }}
+          >
+            ?
+            <div className={`${styles.nodeTooltip} ${styles.tooltipBottom} ${showTooltip ? styles.visible : ''}`}>
+              <div className={styles.tooltipTitle}>{type} Action</div>
+              <div className={styles.tooltipRow}>
+                <span className={styles.tooltipLabel}>Execution:</span>
+                <span>Trade execution system</span>
+              </div>
+              <div className={styles.tooltipRow}>
+                <span className={styles.tooltipLabel}>Impact:</span>
+                <span>
+                  {type === 'BUY' ? 'Increases' : type === 'SELL' ? 'Decreases' : 'Maintains'} portfolio exposure
+                </span>
+              </div>
+              <div className={styles.tooltipRow}>
+                <span className={styles.tooltipLabel}>Triggers:</span>
+                <span>Order placement in trading system</span>
+              </div>
+              <div className={styles.tooltipRow}>
+                <span className={styles.tooltipLabel}>Constraints:</span>
+                <span>Subject to risk limits and rules</span>
+              </div>
+            </div>
+          </button>
+          {isActive && <span className={styles.statusIndicator}></span>}
+        </div>
+        
+        <div className={styles.actionContent}>
           {isActive && quantity && <div className={styles.quantity}>Qty: {quantity}</div>}
         </div>
         
@@ -69,8 +118,6 @@ const ActionNode: React.FC<ActionNodeProps> = ({
           </div>
         )}
       </div>
-      
-      <NodeTooltip content={tooltipContent} />
     </div>
   );
 };

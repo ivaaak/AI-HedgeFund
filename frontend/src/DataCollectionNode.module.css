@@ -1,264 +1,42 @@
-/* Base node styles are inherited from common.module.css */
+/* Add these to your ProcessFlow.module.css file */
 
-.dataCollection {
-    background-color: #263238;
-  }
-  
-  .dataCollection.active {
-    background-image: linear-gradient(45deg, #263238 25%, #37474f 25%, #37474f 50%, #263238 50%, #263238 75%, #37474f 75%, #37474f 100%);
-    background-size: 56.57px 56.57px;
-    animation: dataProcessing 3s linear infinite;
-  }
-  
-  @keyframes dataProcessing {
-    0% {
-      background-position: 0 0;
-    }
-    100% {
-      background-position: 56.57px 56.57px;
-    }
-  }
-  
-  .serviceContent {
-    position: relative;
-  }
-  
-  .tickerBadges {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 5px;
-    margin-bottom: 8px;
-  }
-  
-  .tickerBadge {
-    background-color: #455a64;
-    color: #e0e0e0;
-    padding: 3px 8px;
-    border-radius: 4px;
-    font-size: 12px;
-    font-weight: 500;
-  }
-  
-  .dateRange {
-    font-size: 12px;
-    color: #90a4ae;
-  }
-  
-  .dataStats {
-    display: flex;
-    justify-content: space-between;
-    margin-top: 10px;
-    font-size: 12px;
-    color: #90a4ae;
-  }
-  
-  .loadingOverlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: rgba(38, 50, 56, 0.8);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    font-size: 14px;
-    color: #4fc3f7;
-    z-index: 10;
-  }
-  
-  .loadingSpinner {
-    width: 24px;
-    height: 24px;
-    border: 2px solid #4fc3f7;
-    border-top-color: transparent;
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-    margin-bottom: 8px;
-  }
-  
-  @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-  }
-
-  /* Common styles shared across all node types */
-
-.nodeWrapper {
-  position: relative;
-  width: 100%;
-  margin-bottom: 15px;
-}
-
-/* Node base styles */
-.node {
-  border-radius: 10px;
-  padding: 15px;
-  width: 100%;
-  transition: all 0.3s ease;
-  cursor: pointer;
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
-  position: relative;
-  overflow: hidden;
-  z-index: 5;
-  background-color: #1e1e1e;
-  border: 1px solid #333;
-}
-
-.node:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.4);
-}
-
-.node.active {
-  border-color: #1976d2;
-  box-shadow: 0 6px 16px rgba(25, 118, 210, 0.4);
-}
-
-.node.expanded {
-  max-height: 350px;
-}
-
-.nodeHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
-}
-
-.nodeHeader h3 {
-  margin: 0;
-  font-size: 16px;
+.tickerBadge {
+  background-color: #455a64;
   color: #e0e0e0;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 12px;
   font-weight: 500;
-}
-
-.expandButton {
-  background: none;
-  border: none;
-  color: #90caf9;
-  font-size: 18px;
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   cursor: pointer;
-  border-radius: 50%;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+  user-select: none;
 }
 
-.expandButton:hover {
-  background-color: rgba(144, 202, 249, 0.1);
+.tickerBadge:hover {
+  background-color: #546e7a;
+  transform: translateY(-1px);
 }
 
-/* Status indicator with pulse animation */
-.statusIndicator {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background-color: #4caf50;
-  margin-left: 8px;
-  position: relative;
+.tickerBadge.selected {
+  background-color: #1976d2;
+  border: 1px solid #42a5f5;
+  box-shadow: 0 1px 3px rgba(66, 165, 245, 0.3);
 }
 
-.statusIndicator::after {
+/* Add a slight pointer effect to indicate clickability */
+.tickerBadge::after {
   content: '';
   position: absolute;
-  top: 0;
   left: 0;
-  right: 0;
-  bottom: 0;
-  border-radius: 50%;
-  background-color: rgba(76, 175, 80, 0.5);
-  animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
-}
-
-@keyframes ping {
-  0% {
-    transform: scale(1);
-    opacity: 0.8;
-  }
-  75%, 100% {
-    transform: scale(2.5);
-    opacity: 0;
-  }
-}
-
-/* Flow indicator between nodes */
-.flowIndicator {
-  position: absolute;
-  z-index: 3;
-  right: -25px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background-color: #1976d2;
-  opacity: 0.8;
-  animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-  0% {
-    transform: translateY(-50%) scale(0.8);
-    opacity: 0.5;
-  }
-  50% {
-    transform: translateY(-50%) scale(1.1);
-    opacity: 0.8;
-  }
-  100% {
-    transform: translateY(-50%) scale(0.8);
-    opacity: 0.5;
-  }
-}
-
-/* Expanded content styles */
-.expandedContent {
-  margin-top: 15px;
-  border-top: 1px solid #333;
-  padding-top: 15px;
-  animation: fadeIn 0.3s ease-in;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(-10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-/* Mini chart container styles */
-.miniChartContainer {
+  top: 0;
   width: 100%;
-  background-color: rgba(0, 0, 0, 0.15);
-  border-radius: 6px;
-  padding: 10px;
+  height: 100%;
+  background-color: transparent;
+  border-radius: 4px;
+  transition: background-color 0.1s ease;
 }
 
-.miniChartContainer h4 {
-  font-size: 14px;
-  margin: 0 0 8px 0;
-  color: #bdbdbd;
-  font-weight: normal;
-}
-
-/* Stats shared styles */
-.stat {
-  display: flex;
-  gap: 5px;
-}
-
-.stat span {
-  opacity: 0.7;
-}
-
-/* Placeholder styles */
-.placeholder {
-  color: #757575;
-  font-style: italic;
-  text-align: center;
-  padding: 10px 0;
-  font-size: 13px;
+.tickerBadge:active::after {
+  background-color: rgba(255, 255, 255, 0.1);
 }

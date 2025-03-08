@@ -4,7 +4,8 @@ import {
   NodeType,
   AnalystType,
   ActionType,
-  SystemState
+  SystemState,
+  ProcessFlowConfig
 } from './types';
 import DataCollectionNode from './DataCollectionNode';
 import AnalystNode from './AnalystNode';
@@ -18,6 +19,7 @@ interface ProcessFlowProps {
   startDate: string;
   endDate: string;
   isLoading: boolean;
+  config: ProcessFlowConfig;
   onNodeClick?: (nodeType: NodeType) => void;
 }
 
@@ -27,11 +29,13 @@ const ProcessFlow: React.FC<ProcessFlowProps> = ({
   startDate,
   endDate,
   isLoading,
+  config,
   onNodeClick
 }) => {
   return (
     <div className={styles.processFlowContainer}>
       <div className={styles.processFlow}>
+        {/* Data Collection section - always visible */}
         <div className={styles.processSection}>
           <div className={styles.sectionTitle}>
             <h2>Data Collection</h2>
@@ -47,65 +51,85 @@ const ProcessFlow: React.FC<ProcessFlowProps> = ({
           </div>
         </div>
         
-        <div className={styles.processSection}>
-          <div className={styles.sectionTitle}>
-            <h2>Analysis</h2>
-          </div>
-          <div className={styles.sectionContent}>
-            <div className={styles.analystsGrid}>
-              {Object.values(AnalystType).map(type => (
-                <AnalystNode
-                  key={type}
-                  type={type}
-                  signal={systemState.signals[type]}
-                  isActive={systemState.activeNodes.includes(NodeType.ANALYST)}
-                />
-              ))}
+        {/* Analysis section */}
+        {config.showAnalyst && (
+          <>
+            <div className={styles.processSection}>
+              <div className={styles.sectionTitle}>
+                <h2>Analysis</h2>
+              </div>
+              <div className={styles.sectionContent}>
+                <div className={styles.analystsGrid}>
+                  {Object.values(AnalystType).map(type => (
+                    <AnalystNode
+                      key={type}
+                      type={type as any}
+                      signal={systemState.signals[type]}
+                      isActive={systemState.activeNodes.includes(NodeType.ANALYST)}
+                    />
+                  ))}
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
+          </>
+        )}
         
-        <div className={styles.processSection}>
-          <div className={styles.sectionTitle}>
-            <h2>Risk Management</h2>
-          </div>
-          <div className={styles.sectionContent}>
-            <RiskManagerNode
-              isActive={systemState.activeNodes.includes(NodeType.RISK_MANAGER)}
-              riskAssessment={systemState.riskAssessment}
-            />
-          </div>
-        </div>
-        
-        <div className={styles.processSection}>
-          <div className={styles.sectionTitle}>
-            <h2>Portfolio Management</h2>
-          </div>
-          <div className={styles.sectionContent}>
-            <PortfolioManagerNode
-              isActive={systemState.activeNodes.includes(NodeType.PORTFOLIO_MANAGER)}
-              decision={systemState.decision}
-            />
-          </div>
-        </div>
-        
-        <div className={styles.processSection}>
-          <div className={styles.sectionTitle}>
-            <h2>Action</h2>
-          </div>
-          <div className={styles.sectionContent}>
-            <div className={styles.actionsGrid}>
-              {Object.values(ActionType).map(type => (
-                <ActionNode
-                  key={type}
-                  type={type}
-                  isActive={systemState.decision?.action === type}
-                  quantity={systemState.decision?.action === type ? systemState.decision.quantity : undefined}
+        {/* Risk Management section */}
+        {config.showRiskManager && (
+          <>
+            <div className={styles.processSection}>
+              <div className={styles.sectionTitle}>
+                <h2>Risk Management</h2>
+              </div>
+              <div className={styles.sectionContent}>
+                <RiskManagerNode
+                  isActive={systemState.activeNodes.includes(NodeType.RISK_MANAGER)}
+                  riskAssessment={systemState.riskAssessment}
                 />
-              ))}
+              </div>
             </div>
-          </div>
-        </div>
+          </>
+        )}
+        
+        {/* Portfolio Management section */}
+        {config.showPortfolioManager && (
+          <>
+            <div className={styles.processSection}>
+              <div className={styles.sectionTitle}>
+                <h2>Portfolio Management</h2>
+              </div>
+              <div className={styles.sectionContent}>
+                <PortfolioManagerNode
+                  isActive={systemState.activeNodes.includes(NodeType.PORTFOLIO_MANAGER)}
+                  decision={systemState.decision}
+                />
+              </div>
+            </div>
+          </>
+        )}
+        
+        {/* Action section */}
+        {config.showDecision && (
+          <>
+            <div className={styles.processSection}>
+              <div className={styles.sectionTitle}>
+                <h2>Action</h2>
+              </div>
+              <div className={styles.sectionContent}>
+                <div className={styles.actionsGrid}>
+                  {Object.values(ActionType).map(type => (
+                    <ActionNode
+                      key={type}
+                      type={type}
+                      isActive={systemState.decision?.action === type}
+                      quantity={systemState?.decision?.quantity}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

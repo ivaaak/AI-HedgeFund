@@ -9,6 +9,8 @@ import {
   SystemState,
   Signal,
   Decision,
+  AccountInfo,
+  ProcessFlowConfig,
 } from './types';
 import ProcessFlow from './ProcessFlow';
 
@@ -31,6 +33,24 @@ const App: React.FC = () => {
   const [endDate, setEndDate] = useState<string>(
     new Date().toISOString().split('T')[0]
   );
+
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
+  const [accountInfo, setAccountInfo] = useState<AccountInfo>({
+    username: '',
+    accountBalance: 0,
+    portfolioValue: 0,
+    lastLogin: '',
+    subscriptionTier: 'Free'
+  });
+
+  // New state for process flow configuration
+  const [processFlowConfig, setProcessFlowConfig] = useState<ProcessFlowConfig>({
+    showAnalyst: true,
+    showRiskManager: true,
+    showPortfolioManager: true,
+    showDecision: true,
+    animationsEnabled: true
+  });
 
   // Check API connection
   useEffect(() => {
@@ -75,11 +95,12 @@ const App: React.FC = () => {
   }, [isConnected, autoRefresh, tickers, selectedService]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const updateSystemState = async () => {
-    // Set active nodes
-    setSystemState(prevState => ({
-      ...prevState,
-      activeNodes: [NodeType.ANALYST],
-    }));
+    // Set active nodes based on process flow configuration
+    let activeNodes: NodeType[] = [];
+
+    if (processFlowConfig.showAnalyst) {
+      activeNodes.push(NodeType.ANALYST);
+    }
 
     // Run fundamental analysis if "all" or "fundamentals" is selected
     if (selectedService === 'all' || selectedService === 'fundamentals') {
@@ -95,8 +116,12 @@ const App: React.FC = () => {
       setSystemState(prevState => ({
         ...prevState,
         signals: formattedSignals,
-        activeNodes: [...prevState.activeNodes, NodeType.RISK_MANAGER],
       }));
+
+      // Add risk manager to active nodes if enabled
+      if (processFlowConfig.showRiskManager) {
+        activeNodes.push(NodeType.RISK_MANAGER);
+      }
     }
 
     // Generate risk assessment if "all" or "risk" is selected
@@ -110,8 +135,12 @@ const App: React.FC = () => {
       setSystemState(prevState => ({
         ...prevState,
         riskAssessment,
-        activeNodes: [...prevState.activeNodes, NodeType.PORTFOLIO_MANAGER],
       }));
+
+      // Add portfolio manager to active nodes if enabled
+      if (processFlowConfig.showPortfolioManager) {
+        activeNodes.push(NodeType.PORTFOLIO_MANAGER);
+      }
     }
 
     // Manage portfolio if "all" or "portfolio" is selected
@@ -127,7 +156,7 @@ const App: React.FC = () => {
       const firstTicker = Object.keys(decisionsObj)[0];
       const firstDecision = decisionsObj[firstTicker];
 
-      if (firstDecision) {
+      if (firstDecision && processFlowConfig.showDecision) {
         const decision: Decision = {
           ticker: firstTicker,
           action: firstDecision.action.toUpperCase() as ActionType,
@@ -149,6 +178,12 @@ const App: React.FC = () => {
         }));
       }
     }
+
+    // Update the active nodes
+    setSystemState(prevState => ({
+      ...prevState,
+      activeNodes,
+    }));
   };
 
   const handleAddTicker = (e: React.FormEvent) => {
@@ -176,17 +211,37 @@ const App: React.FC = () => {
     }
   };
 
-  if (isLoading && !systemState.activeNodes.length) {
-    return <div className={styles.loading}>Loading...</div>;
-  }
+  // Toggle process flow configuration
+  const toggleProcessFlowConfig = (key: keyof ProcessFlowConfig) => {
+    setProcessFlowConfig(prevConfig => ({
+      ...prevConfig,
+      [key]: !prevConfig[key]
+    }));
+  };
 
-  if (error && !systemState.activeNodes.length) {
-    return <div className={styles.error}>Error: {error}</div>;
-  }
-
-  if (!isConnected) {
-    return <div className={styles.error}>Cannot connect to API server. Please check if it's running.</div>;
-  }
+  // New login handler
+  const handleLogin = () => {
+    // Mock login functionality
+    if (isLoggedIn) {
+      setIsLoggedIn(false);
+      setAccountInfo({
+        username: '',
+        accountBalance: 0,
+        portfolioValue: 0,
+        lastLogin: '',
+        subscriptionTier: 'Free'
+      });
+    } else {
+      setIsLoggedIn(true);
+      setAccountInfo({
+        username: 'ivaaak',
+        accountBalance: 125000.55,
+        portfolioValue: 234567.89,
+        lastLogin: new Date().toLocaleString(),
+        subscriptionTier: 'Premium'
+      });
+    }
+  };
 
   return (
     <div className={styles.container}>
@@ -203,14 +258,14 @@ const App: React.FC = () => {
             />
             <button type="submit" className={styles.addButton}>Add</button>
           </form>
-          
+
           <div className={styles.tickerList}>
             <h4>Active Tickers:</h4>
             <ul>
               {tickers.map(ticker => (
                 <li key={ticker} className={styles.tickerItem}>
                   {ticker}
-                  <button 
+                  <button
                     onClick={() => handleRemoveTicker(ticker)}
                     className={styles.removeButton}
                   >
@@ -221,7 +276,7 @@ const App: React.FC = () => {
             </ul>
           </div>
         </div>
-        
+
         <div className={styles.analysisControls}>
           <h3>Analysis Controls</h3>
           <div className={styles.dateControls}>
@@ -244,11 +299,11 @@ const App: React.FC = () => {
               />
             </div>
           </div>
-          
+
           <div className={styles.serviceSelector}>
             <label>Service to Run:</label>
-            <select 
-              value={selectedService} 
+            <select
+              value={selectedService}
               onChange={(e) => setSelectedService(e.target.value)}
               className={styles.serviceSelect}
             >
@@ -258,15 +313,15 @@ const App: React.FC = () => {
               <option value="portfolio">Portfolio Management Only</option>
             </select>
           </div>
-          
+
           <div className={styles.runControls}>
-            <button 
+            <button
               onClick={handleRunAnalysis}
               className={styles.runButton}
             >
               Run Analysis
             </button>
-            
+
             <div className={styles.autoRefresh}>
               <input
                 type="checkbox"
@@ -278,42 +333,185 @@ const App: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {/* Process Flow Configuration Column */}
+        <div className={styles.processFlowControls}>
+          <h3>Process Flow Configuration</h3>
+          <div className={styles.processFlowConfig}>
+            <div className={styles.configOption}>
+              <input
+                type="checkbox"
+                id="showAnalyst"
+                checked={processFlowConfig.showAnalyst}
+                onChange={() => toggleProcessFlowConfig('showAnalyst')}
+                className={styles.configCheckbox}
+              />
+              <label htmlFor="showAnalyst">Show Analyst Node</label>
+            </div>
+
+            <div className={styles.configOption}>
+              <input
+                type="checkbox"
+                id="showRiskManager"
+                checked={processFlowConfig.showRiskManager}
+                onChange={() => toggleProcessFlowConfig('showRiskManager')}
+                className={styles.configCheckbox}
+              />
+              <label htmlFor="showRiskManager">Show Risk Manager Node</label>
+            </div>
+
+            <div className={styles.configOption}>
+              <input
+                type="checkbox"
+                id="showPortfolioManager"
+                checked={processFlowConfig.showPortfolioManager}
+                onChange={() => toggleProcessFlowConfig('showPortfolioManager')}
+                className={styles.configCheckbox}
+              />
+              <label htmlFor="showPortfolioManager">Show Portfolio Manager Node</label>
+            </div>
+
+            <div className={styles.configOption}>
+              <input
+                type="checkbox"
+                id="showDecision"
+                checked={processFlowConfig.showDecision}
+                onChange={() => toggleProcessFlowConfig('showDecision')}
+                className={styles.configCheckbox}
+              />
+              <label htmlFor="showDecision">Show Decision Node</label>
+            </div>
+
+            <div className={styles.configOption}>
+              <input
+                type="checkbox"
+                id="animationsEnabled"
+                checked={processFlowConfig.animationsEnabled}
+                onChange={() => toggleProcessFlowConfig('animationsEnabled')}
+                className={styles.configCheckbox}
+              />
+              <label htmlFor="animationsEnabled">Enable Flow Animations</label>
+            </div>
+
+            <div className={styles.configFooter}>
+              <button
+                onClick={() => setProcessFlowConfig({
+                  showAnalyst: true,
+                  showRiskManager: true,
+                  showPortfolioManager: true,
+                  showDecision: true,
+                  animationsEnabled: true
+                })}
+                className={styles.resetButton}
+              >
+                Reset to Default
+              </button>
+
+              <div className={styles.tipsIconContainer}>
+                <div className={styles.tipsIcon}>?</div>
+                <div className={styles.tipsTooltip}>
+                  <h4>Usage Tips:</h4>
+                  <ul className={styles.helpList}>
+                    <li>Toggle nodes to simplify the visualization</li>
+                    <li>Disable animations to improve performance</li>
+                    <li>Select only relevant parts of the process flow</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Account Info Column */}
+        <div className={styles.accountControls}>
+          <div className={styles.accountHeader}>
+            <h3>Account Information</h3>
+            <button
+              onClick={handleLogin}
+              className={isLoggedIn ? styles.logoutButton : styles.loginButton}
+            >
+              {isLoggedIn ? 'Logout' : 'Login'}
+            </button>
+          </div>
+
+          {isLoggedIn ? (
+            <div className={styles.accountDetails}>
+              <div className={styles.accountStat}>
+                <span className={styles.statLabel}>Username:</span>
+                <span className={styles.statValue}>{accountInfo.username}</span>
+              </div>
+
+              <div className={styles.accountStat}>
+                <span className={styles.statLabel}>Balance:</span>
+                <span className={styles.statValue}>${accountInfo.accountBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+              </div>
+
+              <div className={styles.accountStat}>
+                <span className={styles.statLabel}>Portfolio Value:</span>
+                <span className={styles.statValue}>${accountInfo.portfolioValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+              </div>
+
+              <div className={styles.accountStat}>
+                <span className={styles.statLabel}>Last Login:</span>
+                <span className={styles.statValue}>{accountInfo.lastLogin}</span>
+              </div>
+
+              <div className={styles.accountStat}>
+                <span className={styles.statLabel}>Subscription:</span>
+                <span className={`${styles.statValue} ${styles.subscriptionBadge} ${styles[accountInfo.subscriptionTier.toLowerCase()]}`}>
+                  {accountInfo.subscriptionTier}
+                </span>
+              </div>
+            </div>
+          ) : (
+            <div className={styles.loginPrompt}>
+              <p>Login to access your account details and premium features</p>
+              <ul className={styles.featuresList}>
+                <li>Real-time portfolio tracking</li>
+                <li>Advanced analytics</li>
+                <li>AI-powered recommendations</li>
+                <li>Transaction history</li>
+              </ul>
+            </div>
+          )}
+        </div>
       </div>
-      
+
       {error && (
         <div className={styles.errorBanner}>
           {error} <button onClick={() => setError(null)}>Dismiss</button>
         </div>
       )}
-      
-      <ProcessFlow 
+
+      <ProcessFlow
         systemState={systemState}
         tickers={tickers}
         startDate={startDate}
         endDate={endDate}
-        isLoading={isLoading}>
+        isLoading={isLoading}
+        config={processFlowConfig}>
       </ProcessFlow>
-      
+
       <div className={styles.performanceChart}>
         <h2>Portfolio Performance</h2>
         {systemState.performance.length > 0 ? (
           <ResponsiveContainer width="100%" height={200}>
             <LineChart data={systemState.performance}>
-              <XAxis 
-                dataKey="timestamp" 
+              <XAxis
+                dataKey="timestamp"
                 tickFormatter={(timestamp) => new Date(timestamp).toLocaleTimeString()}
               />
               <YAxis domain={['dataMin - 5', 'dataMax + 5']} />
-              <Tooltip 
+              <Tooltip
                 labelFormatter={(label) => new Date(label).toLocaleString()}
                 formatter={(value: number) => value.toFixed(2)}
               />
-              <Line 
-                type="monotone" 
-                dataKey="value" 
+              <Line
+                type="monotone"
+                dataKey="value"
                 stroke="#8884d8"
                 dot={false}
-                isAnimationActive={false}
+                isAnimationActive={processFlowConfig.animationsEnabled}
               />
             </LineChart>
           </ResponsiveContainer>

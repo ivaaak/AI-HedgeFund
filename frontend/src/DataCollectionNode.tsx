@@ -1,6 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import styles from './ProcessFlow.module.css';
-import NodeTooltip from './NodeTooltip';
 import { LineChart, Line, ResponsiveContainer, Tooltip } from 'recharts';
 
 interface DataCollectionNodeProps {
@@ -9,7 +8,7 @@ interface DataCollectionNodeProps {
   startDate: string;
   endDate: string;
   isLoading: boolean;
-  data?: any; // Sample price data for mini-charts
+  data?: { [ticker: string]: any[] }; // Sample price data for mini-charts, keyed by ticker
 }
 
 const DataCollectionNode: React.FC<DataCollectionNodeProps> = ({ 
@@ -21,24 +20,62 @@ const DataCollectionNode: React.FC<DataCollectionNodeProps> = ({
   data
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [selectedTicker, setSelectedTicker] = useState<string | null>(tickers.length > 0 ? tickers[0] : null);
+  const [showTooltip, setShowTooltip] = useState(false);
+  const tooltipTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
-  const toggleExpand = () => {
-    setIsExpanded(!isExpanded);
+  // Update selected ticker if the tickers list changes and current selection is no longer valid
+  useEffect(() => {
+    if (selectedTicker === null || !tickers.includes(selectedTicker)) {
+      setSelectedTicker(tickers.length > 0 ? tickers[0] : null);
+    }
+  }, [tickers, selectedTicker]);
+
+  const toggleExpand = (e: React.MouseEvent) => {
+    // Prevent triggering when clicking on ticker badges
+    if (!(e.target as HTMLElement).closest(`.${styles.tickerBadge}`)) {
+      setIsExpanded(!isExpanded);
+    }
   };
 
-  const tooltipContent = `
-    Function: Financial Data Collection
-    Endpoint: /api/data/fetch
-    Input: Tickers (${tickers.join(', ')}), Date Range (${startDate} to ${endDate})
-    Output: Raw financial data for analysis
-    Description: Fetches historical and real-time market data from financial data providers
-  `;
+  const handleTickerClick = (ticker: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent triggering node expansion
+    setSelectedTicker(ticker);
+    if (!isExpanded) {
+      setIsExpanded(true); // Expand the node when a ticker is selected
+    }
+  };
 
-  // Sample data for mini chart if real data not available
-  const sampleData = data || Array(20).fill(0).map((_, i) => ({
-    time: i,
-    value: Math.random() * 20 + 140 - (i % 5 === 0 ? 10 : 0)
-  }));
+  // Cleanup tooltip timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (tooltipTimeoutRef.current) {
+        clearTimeout(tooltipTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Generate sample data for each ticker if real data not available
+  const generateSampleData = (ticker: string) => {
+    const seed = ticker.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
+    return Array(20).fill(0).map((_, i) => ({
+      time: i,
+      value: Math.random() * 20 + 140 - (i % 5 === 0 ? 10 : 0) + (seed % 50)
+    }));
+  };
+
+  // Get data for the selected ticker
+  const getTickerData = () => {
+    if (!selectedTicker) return [];
+    
+    if (data && data[selectedTicker]) {
+      return data[selectedTicker];
+    }
+    
+    return generateSampleData(selectedTicker);
+  };
+
+  const chartData = getTickerData();
 
   return (
     <div className={styles.nodeWrapper}>
@@ -47,9 +84,55 @@ const DataCollectionNode: React.FC<DataCollectionNodeProps> = ({
         onClick={toggleExpand}
       >
         <div className={styles.nodeHeader}>
-          <h3>Financial Data Service</h3>
-          {isActive && <span className={styles.statusIndicator}></span>}
-          <button className={styles.expandButton}>
+          <div className={styles.headerLeft}>
+            <h3>Financial Data Service</h3>
+            {isActive && <span className={styles.statusIndicator}></span>}
+            <button 
+              className={styles.infoButton} 
+              aria-label="Node Information"
+              onClick={(e) => { 
+                e.stopPropagation();
+                setShowTooltip(!showTooltip);
+              }}
+              onMouseEnter={() => {
+                if (tooltipTimeoutRef.current) {
+                  clearTimeout(tooltipTimeoutRef.current);
+                }
+                setShowTooltip(true);
+              }}
+              onMouseLeave={() => {
+                tooltipTimeoutRef.current = setTimeout(() => {
+                  setShowTooltip(false);
+                }, 300);
+              }}
+            >
+              ?
+              <div className={`${styles.nodeTooltip} ${showTooltip ? styles.visible : ''}`}>
+                <div className={styles.tooltipTitle}>Financial Data Service</div>
+                <div className={styles.tooltipRow}>
+                  <span className={styles.tooltipLabel}>Function:</span>
+                  <span>Financial Data Collection</span>
+                </div>
+                <div className={styles.tooltipRow}>
+                  <span className={styles.tooltipLabel}>Endpoint:</span>
+                  <span>/api/data/fetch</span>
+                </div>
+                <div className={styles.tooltipRow}>
+                  <span className={styles.tooltipLabel}>Input:</span>
+                  <span>Tickers, Date Range</span>
+                </div>
+                <div className={styles.tooltipRow}>
+                  <span className={styles.tooltipLabel}>Output:</span>
+                  <span>Raw financial data</span>
+                </div>
+                <div className={styles.tooltipRow}>
+                  <span className={styles.tooltipLabel}>Description:</span>
+                  <span>Fetches market data from financial providers</span>
+                </div>
+              </div>
+            </button>
+          </div>
+          <button className={styles.expandButton} onClick={(e) => { e.stopPropagation(); toggleExpand(e); }}>
             {isExpanded ? '−' : '+'}
           </button>
         </div>
@@ -57,7 +140,18 @@ const DataCollectionNode: React.FC<DataCollectionNodeProps> = ({
         <div className={styles.serviceContent}>
           <div className={styles.tickerBadges}>
             {tickers.map(ticker => (
-              <span key={ticker} className={styles.tickerBadge}>{ticker}</span>
+              <span 
+                key={ticker} 
+                className={`${styles.tickerBadge} ${selectedTicker === ticker ? styles.selected : ''}`}
+                onClick={(e) => handleTickerClick(ticker, e)}
+                style={{ 
+                  cursor: 'pointer',
+                  backgroundColor: selectedTicker === ticker ? '#1976d2' : '#455a64',
+                  border: selectedTicker === ticker ? '1px solid #42a5f5' : '1px solid transparent'
+                }}
+              >
+                {ticker}
+              </span>
             ))}
           </div>
           <div className={styles.dateRange}>
@@ -67,22 +161,26 @@ const DataCollectionNode: React.FC<DataCollectionNodeProps> = ({
           {isExpanded && (
             <div className={styles.expandedContent}>
               <div className={styles.miniChartContainer}>
-                <h4>Price Overview</h4>
-                <ResponsiveContainer width="100%" height={60}>
-                  <LineChart data={sampleData}>
-                    <Line 
-                      type="monotone" 
-                      dataKey="value" 
-                      stroke="#42a5f5" 
-                      dot={false}
-                      isAnimationActive={false}
-                    />
-                    <Tooltip />
-                  </LineChart>
-                </ResponsiveContainer>
+                <h4>{selectedTicker ? `${selectedTicker} Price Overview` : 'Select a ticker'}</h4>
+                {selectedTicker ? (
+                  <ResponsiveContainer width="100%" height={60}>
+                    <LineChart data={chartData}>
+                      <Line 
+                        type="monotone" 
+                        dataKey="value" 
+                        stroke="#42a5f5" 
+                        dot={false}
+                        isAnimationActive={false}
+                      />
+                      <Tooltip />
+                    </LineChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className={styles.placeholder}>No ticker selected</div>
+                )}
                 <div className={styles.dataStats}>
                   <div className={styles.stat}>
-                    <span>Records:</span> {tickers.length * 90}
+                    <span>Records:</span> {selectedTicker ? 90 : 0}
                   </div>
                   <div className={styles.stat}>
                     <span>Last Updated:</span> {new Date().toLocaleTimeString()}
@@ -100,8 +198,6 @@ const DataCollectionNode: React.FC<DataCollectionNodeProps> = ({
           )}
         </div>
       </div>
-      
-      <NodeTooltip content={tooltipContent} />
       
       {isActive && <div className={styles.flowIndicator}></div>}
     </div>

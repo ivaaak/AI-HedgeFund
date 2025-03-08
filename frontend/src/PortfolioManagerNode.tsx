@@ -1,6 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import styles from './ProcessFlow.module.css';
-import NodeTooltip from './NodeTooltip';
 import { Decision } from './types';
 
 interface PortfolioManagerNodeProps {
@@ -19,18 +18,23 @@ const PortfolioManagerNode: React.FC<PortfolioManagerNodeProps> = ({
   portfolioMetrics
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [showTooltip, setShowTooltip] = useState(false);
+  const tooltipTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
-  const toggleExpand = () => {
-    setIsExpanded(!isExpanded);
+  // Cleanup tooltip timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (tooltipTimeoutRef.current) {
+        clearTimeout(tooltipTimeoutRef.current);
+      }
+    };
+  }, []);
+  
+  const toggleExpand = (e: React.MouseEvent) => {
+    if (!(e.target as HTMLElement).closest(`.${styles.infoButton}`)) {
+      setIsExpanded(!isExpanded);
+    }
   };
-
-  const tooltipContent = `
-    Function: Portfolio Decision Making
-    Endpoint: /api/portfolio/manage
-    Input: Analyst signals, risk assessment, current positions
-    Output: Trading decisions (buy/sell/hold) with quantities
-    Description: Determines optimal portfolio adjustments based on all inputs
-  `;
 
   // Sample portfolio allocation data if none provided
   const portfolioAllocation = portfolioMetrics?.allocation || [
@@ -47,9 +51,61 @@ const PortfolioManagerNode: React.FC<PortfolioManagerNodeProps> = ({
         onClick={toggleExpand}
       >
         <div className={styles.nodeHeader}>
-          <h3>Portfolio Manager</h3>
-          {isActive && <span className={styles.statusIndicator}></span>}
-          <button className={styles.expandButton}>
+          <div className={styles.headerLeft}>
+            <h3>Portfolio Manager</h3>
+            {isActive && <span className={styles.statusIndicator}></span>}
+            <button 
+              className={styles.infoButton} 
+              aria-label="Node Information"
+              onClick={(e) => { 
+                e.stopPropagation();
+                setShowTooltip(!showTooltip);
+              }}
+              onMouseEnter={() => {
+                if (tooltipTimeoutRef.current) {
+                  clearTimeout(tooltipTimeoutRef.current);
+                }
+                setShowTooltip(true);
+              }}
+              onMouseLeave={() => {
+                tooltipTimeoutRef.current = setTimeout(() => {
+                  setShowTooltip(false);
+                }, 300);
+              }}
+            >
+              ?
+              <div className={`${styles.nodeTooltip} ${showTooltip ? styles.visible : ''}`}>
+                <div className={styles.tooltipTitle}>Portfolio Manager</div>
+                <div className={styles.tooltipRow}>
+                  <span className={styles.tooltipLabel}>Function:</span>
+                  <span>Portfolio Decision Making</span>
+                </div>
+                <div className={styles.tooltipRow}>
+                  <span className={styles.tooltipLabel}>Endpoint:</span>
+                  <span>/api/portfolio/manage</span>
+                </div>
+                <div className={styles.tooltipRow}>
+                  <span className={styles.tooltipLabel}>Input:</span>
+                  <span>Analyst signals, risk assessment</span>
+                </div>
+                <div className={styles.tooltipRow}>
+                  <span className={styles.tooltipLabel}>Output:</span>
+                  <span>Trading decisions with quantities</span>
+                </div>
+                <div className={styles.tooltipRow}>
+                  <span className={styles.tooltipLabel}>Description:</span>
+                  <span>Determines optimal portfolio adjustments</span>
+                </div>
+              </div>
+            </button>
+          </div>
+          <button 
+            className={styles.expandButton}
+            onClick={(e) => { 
+              e.stopPropagation(); 
+              setIsExpanded(!isExpanded); 
+            }}
+          >
             {isExpanded ? '−' : '+'}
           </button>
         </div>
@@ -126,8 +182,6 @@ const PortfolioManagerNode: React.FC<PortfolioManagerNodeProps> = ({
           </div>
         )}
       </div>
-      
-      <NodeTooltip content={tooltipContent} />
       
       {isActive && <div className={styles.flowIndicator}></div>}
     </div>

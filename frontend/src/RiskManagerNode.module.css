@@ -77,3 +77,12 @@
   font-size: 12px;
   color: #ce93d8;
 }
+
+.stat {
+  display: flex;
+}
+
+.stat span {
+  font-weight: bold;
+  margin-right: 5px;
+}

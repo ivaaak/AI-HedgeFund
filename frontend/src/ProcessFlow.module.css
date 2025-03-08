@@ -43,7 +43,7 @@
   border-radius: 10px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
   overflow-x: visible;
-  padding: 30px 0px;
+  padding: 10px 10px;
   scrollbar-width: thin;
   scrollbar-color: #333 #121212;
   column-gap: 80px;
@@ -54,21 +54,21 @@
   /* Set minimum height to ensure enough space */
 }
 
-.processFlow::-webkit-scrollbar {
+/* .processFlow::-webkit-scrollbar {
   height: 8px;
-}
+} */
 
-.processFlow::-webkit-scrollbar-track {
+/* .processFlow::-webkit-scrollbar-track {
   background: #121212;
   border-radius: 4px;
-}
+} */
 
-.processFlow::-webkit-scrollbar-thumb {
+/* .processFlow::-webkit-scrollbar-thumb {
   background-color: #333;
   border-radius: 4px;
-}
+} */
 
-/* Process flow path line */
+/* Process flow path line
 .processFlow::before {
   content: '';
   position: absolute;
@@ -83,7 +83,7 @@
       rgba(25, 118, 210, 0.2) 100%);
   transform: translateY(-50%);
   z-index: 1;
-}
+} */
 
 .processSection {
   display: flex;
@@ -143,6 +143,7 @@
 .nodeWrapper {
   position: relative;
   width: 100%;
+  overflow: visible;
 }
 
 /* Flow indicator animation */
@@ -186,7 +187,7 @@
   cursor: pointer;
   box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
   position: relative;
-  overflow: hidden;
+  overflow: visible;
   z-index: 5;
   background-color: #1e1e1e;
   /* Dark background for all nodes */
@@ -814,12 +815,13 @@
 /* TOOLTIP STYLES */
 .tooltipContainer {
   position: relative;
+  z-index: 1000;
   width: 100%;
 }
 
 .tooltip {
   position: absolute;
-  z-index: 100;
+  z-index: 1000;
   bottom: calc(100% - 150px);
   left: 50%;
   transform: translateX(-50%);
@@ -906,4 +908,97 @@
 /* Add a trigger for tooltip visibility */
 .nodeWrapper:hover .tooltip {
   display: block;
+  overflow: visible;
+  z-index: 1000;
+}
+
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.infoButton {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border-radius: 50%;
+  background-color: #455a64;
+  color: #e0e0e0;
+  font-size: 12px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.infoButton:hover {
+  background-color: #1976d2;
+}
+
+/* Updated tooltip styles with downward arrow */
+.nodeTooltip {
+  position: absolute;
+  top: -150px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 250px;
+  background-color: #263238;
+  color: #e0e0e0;
+  padding: 10px;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  font-size: 12px;
+  z-index: 1000;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+  pointer-events: none;
+  margin-top: 10px;
+  border: 1px solid #455a64;
+}
+
+.tooltipBottom::before {
+  content: '';
+  position: absolute;
+  top: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-bottom: 6px solid #455a64;
+}
+
+.nodeTooltip.visible {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Position the tooltip relative to the info button */
+.infoButton {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background-color: #455a64;
+  color: #e0e0e0;
+  font-size: 12px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.infoButton:hover {
+  background-color: #1976d2;
 }
