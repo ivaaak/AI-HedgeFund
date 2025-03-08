@@ -20,8 +20,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 20px;
-  margin-bottom: 30px;
-  padding: 20px;
+  padding: 0px 20px;
   background-color: #1e1e1e;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
@@ -228,86 +227,6 @@
   font-style: italic;
 }
 
-/* Enhanced Horizontal Process Flow - Updated */
-.processFlowHorizontal {
-  display: flex;
-  align-items: stretch;
-  justify-content: space-between;
-  overflow-x: auto;
-  padding: 40px 20px;
-  margin-bottom: 40px;
-  background-color: #181818;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-  min-height: 400px;
-  position: relative;
-}
-
-.processSection {
-  display: flex;
-  flex-direction: column;
-  min-width: 220px;
-  flex: 1;
-  position: relative;
-  padding: 0 10px;
-}
-
-.sectionTitle {
-  font-weight: bold;
-  margin-bottom: 15px;
-  color: #90caf9;
-  text-align: center;
-  width: 100%;
-  border-bottom: 1px solid #444;
-  padding-bottom: 5px;
-}
-
-.sectionContainer {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  width: 100%;
-}
-
-/* Advanced Process Connection with Animated Flow */
-.processConnection {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 60px;
-  position: relative;
-}
-
-.dataFlow {
-  height: 4px;
-  width: 100%;
-  background-color: #1e1e1e;
-  position: relative;
-  overflow: hidden;
-}
-
-.dataFlow::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  height: 100%;
-  width: 50%;
-  background: linear-gradient(90deg, transparent, #1976d2, transparent);
-  animation: dataFlowAnimation 2s infinite linear;
-}
-
-@keyframes dataFlowAnimation {
-  0% {
-    left: -50%;
-  }
-  100% {
-    left: 100%;
-  }
-}
-
 /* Add pulse effect to connections when nodes are active */
 .processSection:has(.node.active) + .processConnection .dataFlow::before {
   background: linear-gradient(90deg, transparent, #64b5f6, transparent);
@@ -321,305 +240,6 @@
   width: 100%;
 }
 
-/* Enhanced Node Styles with Hover Info */
-.node {
-  padding: 15px;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-  background-color: #2a2a2a;
-  width: 100%;
-  transition: all 0.3s ease;
-  opacity: 0.75;
-  border: 2px solid transparent;
-  margin-bottom: 10px;
-  position: relative;
-  overflow: hidden;
-  cursor: pointer;
-}
-
-.node.active {
-  opacity: 1;
-  border-color: #1976d2;
-  box-shadow: 0 4px 12px rgba(25, 118, 210, 0.5);
-  background-color: #333333;
-  animation: pulseNode 2s infinite alternate;
-}
-
-@keyframes pulseNode {
-  0% {
-    box-shadow: 0 4px 12px rgba(25, 118, 210, 0.3);
-  }
-  100% {
-    box-shadow: 0 4px 12px rgba(25, 118, 210, 0.7);
-  }
-}
-
-/* Hover tooltip styles */
-.node {
-  position: relative;
-}
-
-/* Tooltip base styles */
-.node {
-  position: relative;
-  cursor: pointer;
-}
-
-/* Tooltip content */
-.node::after {
-  content: attr(data-tooltip);
-  position: absolute;
-  z-index: 100;
-  top: -10px;
-  left: 50%;
-  transform: translateX(-50%) translateY(-100%);
-  width: 300px;
-  max-width: 300px;
-  background-color: #000;
-  color: #fff;
-  text-align: left;
-  border-radius: 6px;
-  padding: 12px;
-  box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-  opacity: 0;
-  visibility: hidden;
-  transition: all 0.3s ease;
-  border: 1px solid #444;
-  white-space: pre-line;
-  font-size: 13px;
-  line-height: 1.4;
-  pointer-events: none;
-}
-
-/* Tooltip arrow */
-.node::before {
-  content: '';
-  position: absolute;
-  z-index: 100;
-  top: -10px;
-  left: 50%;
-  transform: translateX(-50%);
-  border-width: 8px;
-  border-style: solid;
-  border-color: #000 transparent transparent transparent;
-  opacity: 0;
-  visibility: hidden;
-  transition: all 0.3s ease;
-  pointer-events: none;
-}
-
-/* Show tooltip on hover or when explicitly shown */
-.node:hover::after,
-.node:hover::before,
-.node.showTooltip::after,
-.node.showTooltip::before {
-  opacity: 1;
-  visibility: visible;
-}
-
-/* Handle positioning for first element in the row */
-.processSection:first-child .node::after,
-.processSection:first-child .node.showTooltip::after,
-.processSection:first-child .node:hover::after {
-  left: 0;
-  transform: translateY(-100%);
-}
-
-.processSection:first-child .node::before,
-.processSection:first-child .node.showTooltip::before,
-.processSection:first-child .node:hover::before {
-  left: 20px;
-}
-
-/* Handle positioning for last element in the row */
-.processSection:last-child .node::after,
-.processSection:last-child .node.showTooltip::after,
-.processSection:last-child .node:hover::after {
-  left: auto;
-  right: 0;
-  transform: translateY(-100%);
-}
-
-.processSection:last-child .node::before,
-.processSection:last-child .node.showTooltip::before,
-.processSection:last-child .node:hover::before {
-  left: auto;
-  right: 20px;
-}
-
-.dataCollection {
-  background-color: #263238;
-}
-
-.dataCollection.active {
-  animation: dataProcessing 3s infinite;
-  background-image: linear-gradient(45deg, #263238 25%, #37474f 25%, #37474f 50%, #263238 50%, #263238 75%, #37474f 75%, #37474f 100%);
-  background-size: 56.57px 56.57px;
-}
-
-@keyframes dataProcessing {
-  0% {
-    background-position: 0 0;
-  }
-  100% {
-    background-position: 56.57px 56.57px;
-  }
-}
-
-.analyst {
-  background-color: #1b5e20;
-  margin-bottom: 10px;
-}
-
-.analyst.active {
-  animation: analyzeData 2s infinite alternate;
-}
-
-@keyframes analyzeData {
-  0% {
-    background-color: #1b5e20;
-  }
-  100% {
-    background-color: #2e7d32;
-  }
-}
-
-.riskManager {
-  background-color: #4a148c;
-}
-
-.riskManager.active {
-  animation: assessRisk 3s infinite;
-  background-image: linear-gradient(45deg, #4a148c 25%, #6a1b9a 25%, #6a1b9a 50%, #4a148c 50%, #4a148c 75%, #6a1b9a 75%, #6a1b9a 100%);
-  background-size: 56.57px 56.57px;
-}
-
-@keyframes assessRisk {
-  0% {
-    background-position: 0 0;
-  }
-  100% {
-    background-position: 56.57px 56.57px;
-  }
-}
-
-.portfolioManager {
-  background-color: #0d47a1;
-}
-
-.portfolioManager.active {
-  animation: managePortfolio 2s infinite alternate;
-}
-
-@keyframes managePortfolio {
-  0% {
-    background-color: #0d47a1;
-  }
-  100% {
-    background-color: #1565c0;
-  }
-}
-
-.signal, .decision, .serviceContent {
-  font-size: 14px;
-  background-color: rgba(255, 255, 255, 0.05);
-  padding: 8px;
-  border-radius: 5px;
-  margin-top: 10px;
-  width: 100%;
-  box-sizing: border-box;
-}
-
-.signal div, .decision div, .serviceContent div {
-  margin-bottom: 5px;
-}
-
-.factors ul {
-  margin-top: 5px;
-  margin-bottom: 0;
-  padding-left: 20px;
-}
-
-.action {
-  padding: 12px;
-  text-align: center;
-  font-weight: bold;
-  color: white;
-  width: 100%;
-  margin-bottom: 10px;
-  transition: all 0.3s ease;
-}
-
-.buy {
-  background-color: #2e7d32;
-}
-
-.buy.active {
-  animation: buyAction 2s infinite alternate;
-}
-
-@keyframes buyAction {
-  0% {
-    background-color: #2e7d32;
-  }
-  100% {
-    background-color: #43a047;
-  }
-}
-
-.sell {
-  background-color: #c62828;
-}
-
-.sell.active {
-  animation: sellAction 2s infinite alternate;
-}
-
-@keyframes sellAction {
-  0% {
-    background-color: #c62828;
-  }
-  100% {
-    background-color: #e53935;
-  }
-}
-
-.hold {
-  background-color: #f57c00;
-}
-
-.hold.active {
-  animation: holdAction 2s infinite alternate;
-}
-
-@keyframes holdAction {
-  0% {
-    background-color: #f57c00;
-  }
-  100% {
-    background-color: #fb8c00;
-  }
-}
-
-.action.active {
-  transform: scale(1.05);
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
-}
-
-.analyst h3, .riskManager h3, .portfolioManager h3, .dataCollection h3 {
-  margin-top: 0;
-  margin-bottom: 10px;
-  font-size: 16px;
-  text-align: center;
-  color: #e0e0e0;
-}
-
-.placeholder {
-  text-align: center;
-  color: #757575;
-  font-style: italic;
-  padding: 15px 0;
-}
 
 /* Performance Chart */
 .performanceChart {
@@ -650,5 +270,45 @@
   
   .processConnection {
     width: 40px;
+  }
+}
+
+/* Stats shared styles */
+.stat {
+  display: flex;
+  gap: 5px;
+}
+
+.stat span {
+  opacity: 0.7;
+}
+
+/* Placeholder styles */
+.placeholder {
+  color: #757575;
+  font-style: italic;
+  text-align: center;
+  padding: 10px 0;
+  font-size: 13px;
+}
+
+/* Responsive styles */
+@media (max-width: 1200px) {
+  .processFlow {
+      padding: 20px 10px;
+  }
+
+  .processSection {
+      min-width: 200px;
+  }
+}
+
+@media (max-width: 768px) {
+  .processFlow::before {
+      display: none;
+  }
+
+  .flowIndicator {
+      display: none;
   }
 }

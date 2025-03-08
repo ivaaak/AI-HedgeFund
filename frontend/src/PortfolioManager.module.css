@@ -1,0 +1,101 @@
+/* Base node styles are inherited from common.module.css */
+
+.portfolioManager {
+  background-color: #0d47a1;
+}
+
+.portfolioManager.active {
+  animation: managePortfolio 2s infinite alternate;
+}
+
+@keyframes managePortfolio {
+  0% {
+    background-color: #0d47a1;
+  }
+
+  100% {
+    background-color: #1565c0;
+  }
+}
+
+.decision {
+  display: flex;
+  flex-direction: column;
+}
+
+.actionBadge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 16px;
+  height: 36px;
+  width: 80px;
+  border-radius: 6px;
+  margin-bottom: 10px;
+  color: #fff;
+}
+
+.actionBadge.buy {
+  background-color: #2e7d32;
+}
+
+.actionBadge.sell {
+  background-color: #c62828;
+}
+
+.actionBadge.hold {
+  background-color: #f57c00;
+}
+
+.decisionDetails {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 13px;
+  color: #e0e0e0;
+}
+
+.portfolioAllocation {
+  width: 100%;
+}
+
+.allocationBars {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  width: 100%;
+}
+
+.allocationItem {
+  width: 100%;
+}
+
+.allocationLabel {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  margin-bottom: 2px;
+  color: #e0e0e0;
+}
+
+.allocationBarContainer {
+  background-color: rgba(255, 255, 255, 0.1);
+  height: 6px;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.allocationBar {
+  height: 100%;
+  background-color: #2196f3;
+  border-radius: 3px;
+}
+
+.portfolioStats {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 12px;
+  font-size: 12px;
+  color: #90caf9;
+}

@@ -10,11 +10,7 @@ import {
   Signal,
   Decision,
 } from './types';
-import AnalystNode from './AnalystNode';
-import ActionNode from './ActionNode';
-import DataCollectionNode from './DataCollectionNode';
-import RiskManagerNode from './RiskManagerNode';
-import PortfolioManagerNode from './PortfolioManagerNode';
+import ProcessFlow from './ProcessFlow';
 
 const App: React.FC = () => {
   const [systemState, setSystemState] = useState<SystemState>({
@@ -290,87 +286,13 @@ const App: React.FC = () => {
         </div>
       )}
       
-      <div className={styles.processFlowHorizontal}>
-        <div className={styles.processSection}>
-          <div className={styles.sectionTitle}>Data Collection</div>
-          <div className={styles.sectionContainer}>
-            <DataCollectionNode
-              isActive={systemState.activeNodes.includes(NodeType.ANALYST)}
-              tickers={tickers}
-              startDate={startDate}
-              endDate={endDate}
-              isLoading={isLoading}
-            />
-          </div>
-        </div>
-        
-        <div className={styles.processConnection}>
-          <div className={styles.dataFlow}></div>
-        </div>
-        
-        <div className={styles.processSection}>
-          <div className={styles.sectionTitle}>Analysis</div>
-          <div className={styles.sectionContainer}>
-            <div className={styles.analystsGrid}>
-              {Object.values(AnalystType).map(type => (
-                <AnalystNode
-                  key={type}
-                  type={type}
-                  signal={systemState.signals[type]}
-                  isActive={systemState.activeNodes.includes(NodeType.ANALYST)}
-                />
-              ))}
-            </div>
-          </div>
-        </div>
-        
-        <div className={styles.processConnection}>
-          <div className={styles.dataFlow}></div>
-        </div>
-        
-        <div className={styles.processSection}>
-          <div className={styles.sectionTitle}>Risk Management</div>
-          <div className={styles.sectionContainer}>
-            <RiskManagerNode
-              isActive={systemState.activeNodes.includes(NodeType.RISK_MANAGER)}
-              riskAssessment={systemState.riskAssessment}
-            />
-          </div>
-        </div>
-        
-        <div className={styles.processConnection}>
-          <div className={styles.dataFlow}></div>
-        </div>
-        
-        <div className={styles.processSection}>
-          <div className={styles.sectionTitle}>Portfolio Management</div>
-          <div className={styles.sectionContainer}>
-            <PortfolioManagerNode
-              isActive={systemState.activeNodes.includes(NodeType.PORTFOLIO_MANAGER)}
-              decision={systemState.decision}
-            />
-          </div>
-        </div>
-        
-        <div className={styles.processConnection}>
-          <div className={styles.dataFlow}></div>
-        </div>
-        
-        <div className={styles.processSection}>
-          <div className={styles.sectionTitle}>Action</div>
-          <div className={styles.sectionContainer}>
-            <div className={styles.actionsGrid}>
-              {Object.values(ActionType).map(type => (
-                <ActionNode
-                  key={type}
-                  type={type}
-                  isActive={systemState.decision?.action === type}
-                />
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
+      <ProcessFlow 
+        systemState={systemState}
+        tickers={tickers}
+        startDate={startDate}
+        endDate={endDate}
+        isLoading={isLoading}>
+      </ProcessFlow>
       
       <div className={styles.performanceChart}>
         <h2>Portfolio Performance</h2>

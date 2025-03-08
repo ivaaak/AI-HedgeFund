@@ -10,6 +10,10 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+body {
+  margin: 0;
+}
+
 a {
   font-weight: 500;
   color: #646cff;
@@ -53,5 +57,46 @@ button:focus-visible {
   }
   button {
     background-color: #f9f9f9;
+  }
+}
+
+
+/* Stats shared styles */
+.stat {
+  display: flex;
+  gap: 5px;
+}
+
+.stat span {
+  opacity: 0.7;
+}
+
+/* Placeholder styles */
+.placeholder {
+  color: #757575;
+  font-style: italic;
+  text-align: center;
+  padding: 10px 0;
+  font-size: 13px;
+}
+
+/* Responsive styles */
+@media (max-width: 1200px) {
+  .processFlow {
+      padding: 20px 10px;
+  }
+
+  .processSection {
+      min-width: 200px;
+  }
+}
+
+@media (max-width: 768px) {
+  .processFlow::before {
+      display: none;
+  }
+
+  .flowIndicator {
+      display: none;
   }
 }

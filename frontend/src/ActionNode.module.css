@@ -1,0 +1,136 @@
+/* Base node styles are inherited from common.module.css */
+
+.actionsGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.action {
+  background-color: #333;
+  color: white;
+  padding: 12px;
+  text-align: center;
+  border-radius: 8px;
+}
+
+.buy {
+  background-color: #2e7d32;
+}
+
+.sell {
+  background-color: #c62828;
+}
+
+.hold {
+  background-color: #f57c00;
+}
+
+.buy.active,
+.sell.active,
+.hold.active {
+  transform: scale(1.05);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
+}
+
+.buy.active {
+  animation: buyAction 2s infinite alternate;
+}
+
+@keyframes buyAction {
+  0% {
+    background-color: #2e7d32;
+  }
+
+  100% {
+    background-color: #43a047;
+  }
+}
+
+.sell.active {
+  animation: sellAction 2s infinite alternate;
+}
+
+@keyframes sellAction {
+  0% {
+    background-color: #c62828;
+  }
+
+  100% {
+    background-color: #e53935;
+  }
+}
+
+.hold.active {
+  animation: holdAction 2s infinite alternate;
+}
+
+@keyframes holdAction {
+  0% {
+    background-color: #f57c00;
+  }
+
+  100% {
+    background-color: #fb8c00;
+  }
+}
+
+.actionContent {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.actionType {
+  font-weight: bold;
+  font-size: 16px;
+  margin-bottom: 5px;
+}
+
+.quantity {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.actionHistory {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.historyItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background-color: rgba(0, 0, 0, 0.2);
+  padding: 6px;
+  border-radius: 4px;
+}
+
+.historyBadge {
+  font-size: 12px;
+  padding: 2px 5px;
+  border-radius: 3px;
+  color: white;
+}
+
+.historyBadge.buy {
+  background-color: #2e7d32;
+}
+
+.historyBadge.sell {
+  background-color: #c62828;
+}
+
+.historyBadge.hold {
+  background-color: #f57c00;
+}
+
+.historyDetails {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 11px;
+  color: #e0e0e0;
+}

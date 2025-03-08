@@ -1,0 +1,95 @@
+/* Base node styles are inherited from common.module.css */
+
+.analyst {
+  background-color: #1b5e20;
+}
+
+.fundamental {
+  background-color: #1b5e20;
+}
+
+.technical {
+  background-color: #0d47a1;
+}
+
+.sentiment {
+  background-color: #4a148c;
+}
+
+.macro {
+  background-color: #b71c1c;
+}
+
+.analyst.active {
+  animation: analyzeData 2s infinite alternate;
+}
+
+@keyframes analyzeData {
+  0% {
+    background-color: currentColor;
+  }
+
+  100% {
+    filter: brightness(1.3);
+  }
+}
+
+.signal {
+  display: flex;
+  flex-direction: column;
+}
+
+.signalIndicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 18px;
+  height: 36px;
+  width: 90px;
+  border-radius: 6px;
+  margin-bottom: 10px;
+  background-color: #424242;
+  color: #e0e0e0;
+}
+
+.signalIndicator.strong-positive {
+  background-color: #00c853;
+  color: #000;
+}
+
+.signalIndicator.positive {
+  background-color: #4caf50;
+  color: #fff;
+}
+
+.signalIndicator.neutral {
+  background-color: #ffc107;
+  color: #000;
+}
+
+.signalIndicator.negative {
+  background-color: #ff5722;
+  color: #fff;
+}
+
+.signalIndicator.strong-negative {
+  background-color: #d32f2f;
+  color: #fff;
+}
+
+.signalDetails {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 13px;
+  color: #e0e0e0;
+}
+
+.analysisStats {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 10px;
+  font-size: 12px;
+  color: #bdbdbd;
+}
