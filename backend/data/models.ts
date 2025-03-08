@@ -160,7 +160,7 @@ export interface Portfolio {
 // Analyst Models
 export interface AnalystSignal {
     signal: string | null;
-    confidence: number | null;
+    confidence: number | null | undefined;
     reasoning: Record<string, any> | string | null;
     max_position_size: number | null;
 }
@@ -178,9 +178,17 @@ export interface Signal {
 
 // Fundamental Analysis result for a ticker
 export interface FundamentalAnalysis {
-    signal: string;
-    confidence: number;
-    reasoning: Record<string, Signal>;
+    signal?: string;
+    confidence?: number;
+    reasoning?: Record<string, Signal>;
+    // Additional properties for risk management data
+    current_price?: number;
+    portfolio_value?: number;
+    position_limit?: number;
+    current_position_value?: number;
+    remaining_position_limit?: number;
+    // Allow additional fields for flexibility
+    [key: string]: any;
 }
 
 // Message structure for agent communication
@@ -194,21 +202,29 @@ export interface BaseMessage {
     name?: string;
 }
 
-// Agent State structure
+/**
+ * The data portion of the AgentState
+ * This is extracted to allow for using Partial<AgentStateData> in updates
+ */
+export interface AgentStateData {
+    tickers: string[];
+    start_date: string;
+    end_date: string;
+    portfolio: Portfolio;
+    analyst_signals: {
+        [agent: string]: {
+            [ticker: string]: FundamentalAnalysis;
+        };
+    };
+    [key: string]: any; // Allow additional fields
+}
+
+/**
+ * Agent State structure
+ */
 export interface AgentState {
     messages: AnalysisMessage[];
-    data: {
-        tickers: string[];
-        start_date: string;
-        end_date: string;
-        portfolio: Portfolio;
-        analyst_signals: {
-            [agent: string]: {
-                [ticker: string]: FundamentalAnalysis;
-            };
-        };
-        [key: string]: any; // Allow additional fields
-    };
+    data: AgentStateData;
     metadata: {
         show_reasoning?: boolean;
         [key: string]: any; // Allow additional fields

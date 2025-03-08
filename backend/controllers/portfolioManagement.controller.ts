@@ -1,12 +1,13 @@
 import { Request, Response } from 'express';
 import { PortfolioManagementService } from '../services/portfoliomanagement.service';
 import { AgentState } from '../data/models';
+import config from '../config';
 
 export class PortfolioManagementController {
   private portfolioService: PortfolioManagementService;
 
   constructor() {
-    this.portfolioService = new PortfolioManagementService();
+    this.portfolioService = new PortfolioManagementService(config.openAiApiKey);
   }
 
   public managePortfolio = async (req: Request, res: Response): Promise<void> => {

@@ -6,14 +6,13 @@ export class OpenAIService {
   private openai: OpenAI;
 
   constructor(apiKey?: string) {
-    // Use the provided API key, which should be handled by the calling application
     if (!apiKey) {
       console.warn('No API key provided to OpenAIService. API calls will likely fail.');
     }
-    
+
     this.openai = new OpenAI({
       apiKey: apiKey || '',
-      dangerouslyAllowBrowser: true // Set this to true when using in browser environments
+      dangerouslyAllowBrowser: true // Set to true when using in browser environments
     });
   }
 
@@ -24,39 +23,49 @@ export class OpenAIService {
    */
   public async getCompletion<T>(prompt: string): Promise<T> {
     try {
+      console.log("Request Prompt:", prompt); // Log the prompt
+
       const messages: ChatCompletionMessageParam[] = [
         {
           role: 'system',
-          content: 'You are a financial analyst assistant providing analysis in JSON format. Always structure your response as valid JSON that can be parsed.'
+          content: `You are a financial analyst assistant providing analysis in JSON format. Always return a **valid** JSON response. Do not include extra commas. Ensure proper syntax without trailing commas. Do not include any text outside JSON. If you are unsure, return an empty JSON object {}.`
         },
-        { 
-          role: 'user', 
-          content: prompt 
+        {
+          role: 'user',
+          content: prompt
         }
       ];
 
       const response = await this.openai.chat.completions.create({
-        model: 'gpt-4',
+        model: 'gpt-3.5-turbo',
         temperature: 0.2,
         messages: messages
       });
 
+      // Log the raw response
+      console.log("OpenAI Response Body:", JSON.stringify(response, null, 2));
+
       // Extract the JSON from the response
       const content = response.choices[0].message.content || '';
-      const jsonMatch = content.match(/```json\n([\s\S]*?)\n```/) || 
-                        content.match(/{[\s\S]*?}/);
-                        
+      console.log("Raw content from OpenAI:", content); // Log raw content before parsing
+
+      const jsonMatch = content.match(/```json\n([\s\S]*?)\n```/) || content.match(/{[\s\S]*?}/);
+
       if (!jsonMatch) {
+        console.warn("No JSON detected in response.");
         throw new Error('Failed to extract JSON from OpenAI response');
       }
-      
+
       const jsonStr = jsonMatch[1] || jsonMatch[0];
+      console.log("Extracted JSON String:", jsonStr); // Log the extracted JSON
+
       return JSON.parse(jsonStr) as T;
     } catch (error) {
       console.error('OpenAI API Error:', error);
       throw error;
     }
   }
+
 
   /**
    * Analyze fundamentals with OpenAI
@@ -65,7 +74,7 @@ export class OpenAIService {
    */
   public async analyzeFundamentals(metrics: FinancialMetrics): Promise<FundamentalAnalysis> {
     const prompt = this.generateFundamentalAnalysisPrompt(metrics);
-    
+
     try {
       return await this.getCompletion<FundamentalAnalysis>(prompt);
     } catch (error) {
@@ -86,7 +95,7 @@ export class OpenAIService {
       return value !== null ? value.toFixed(2) : 'N/A';
     };
 
-    return `Analyze the following financial metrics for a company:
+    return `Analyze the following financial metrics for a company and return a structured JSON analysis:
     
     Profitability:
     - Return on Equity: ${formatPercentage(metrics.return_on_equity)}
@@ -108,16 +117,17 @@ export class OpenAIService {
     - Price to Earnings Ratio: ${formatRatio(metrics.price_to_earnings_ratio)}
     - Price to Book Ratio: ${formatRatio(metrics.price_to_book_ratio)}
     - Price to Sales Ratio: ${formatRatio(metrics.price_to_sales_ratio)}
-    
+
     Based on these metrics, generate a fundamental analysis with signals for:
     1. Profitability (bullish, bearish, or neutral)
     2. Growth (bullish, bearish, or neutral)
     3. Financial Health (bullish, bearish, or neutral)
     4. Price Ratios (bullish, bearish, or neutral)
-    
+
     Then calculate an overall signal and confidence score.
     
-    Return the analysis in the following JSON format:
+    Ensure to structure the analysis in the following JSON format, no additional text outside the JSON:
+
     {
       "signal": "bullish"|"bearish"|"neutral",
       "confidence": number (0-100),
@@ -149,7 +159,7 @@ export class OpenAIService {
    * @returns Suggested portfolio allocation changes
    */
   public async getPortfolioSuggestions(
-    currentPortfolio: any, 
+    currentPortfolio: any,
     fundamentalAnalyses: Record<string, FundamentalAnalysis>
   ): Promise<any> {
     const prompt = `
@@ -173,7 +183,7 @@ export class OpenAIService {
     2. Specific actions for each ticker (buy, hold, sell)
     3. Reasoning for each action
     `;
-    
+
     try {
       return await this.getCompletion(prompt);
     } catch (error) {
@@ -187,28 +197,28 @@ export class OpenAIService {
    * @param messages Array of messages to send to OpenAI
    * @returns OpenAI's response
    */
-  public async getChatCompletion(messages: Array<{role: string, content: string}>): Promise<string> {
+  public async getChatCompletion(messages: Array<{ role: string, content: string }>): Promise<string> {
     try {
-      // Format the messages to include a system message if one doesn't exist
       const hasSystemMessage = messages.some(msg => msg.role === 'system');
-      
-      // Need to cast messages to the specific type expected by OpenAI SDK
-      const formattedMessages: ChatCompletionMessageParam[] = hasSystemMessage 
+
+      const formattedMessages: ChatCompletionMessageParam[] = hasSystemMessage
         ? messages as ChatCompletionMessageParam[]
         : [
-            {
-              role: 'system',
-              content: 'You are a financial analysis assistant helping with stock market analysis and portfolio management.'
-            },
-            ...messages
-          ] as ChatCompletionMessageParam[];
-      
+          {
+            role: 'system',
+            content: 'You are a financial analysis assistant helping with stock market analysis and portfolio management.'
+          },
+          ...messages
+        ] as ChatCompletionMessageParam[];
+
       const response = await this.openai.chat.completions.create({
-        model: 'gpt-4',
+        model: 'gpt-3.5-turbo',
         temperature: 0.2,
         messages: formattedMessages
       });
-      
+
+      console.log("OpenAI Request Body:", JSON.stringify(response, null, 2));
+
       return response.choices[0].message.content || '';
     } catch (error) {
       console.error('OpenAI Chat API Error:', error);

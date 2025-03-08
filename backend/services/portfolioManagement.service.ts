@@ -63,9 +63,9 @@ export class PortfolioManagementService {
     for (const [agent, agentSignals] of Object.entries(analystSignals)) {
       if (agent !== 'risk_management_agent' && ticker in agentSignals) {
         signals[agent] = {
-          signal: agentSignals[ticker].signal,
-          confidence: agentSignals[ticker].confidence,
-          reasoning: null,
+          signal: agentSignals[ticker].signal || null,
+          confidence: agentSignals[ticker].confidence !== undefined ? agentSignals[ticker].confidence : null,
+          reasoning: agentSignals[ticker].reasoning || null,
           max_position_size: null
         };
       }

@@ -4,8 +4,10 @@ import { FinancialDataController } from '../controllers/financial-data.controlle
 const router = Router();
 const controller = new FinancialDataController();
 
+// GET /api/financial-data/prices
 router.get('/prices', controller.getPrices);
-router.get('/financial-metrics', controller.getFinancialMetrics);
-// Add other routes...
+
+// GET /api/financial-data/metrics
+router.get('/metrics', controller.getFinancialMetrics);
 
 export default router;

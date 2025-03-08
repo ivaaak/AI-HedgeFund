@@ -1,4 +1,3 @@
-// Import AgentState from models.ts instead of state.ts
 import { AgentStateService } from "../services/agentstate.service";
 import { FinancialDataService } from "../services/financialdata.service";
 import { FundamentalsService } from "../services/fundamentals.service";
@@ -9,8 +8,11 @@ import {
   Position, 
   AnalysisMessage, 
   TradeRecord,
-  AgentState // Import AgentState from models.ts
+  AgentState,
+  AgentStateData,
+  FundamentalAnalysis
 } from "../data/models";
+import config from "../config";
 
 // Define interfaces for missing types
 interface BaseMessage {
@@ -45,7 +47,7 @@ export class HedgefundController {
   constructor() {
     this.agentStateService = new AgentStateService();
     this.fundamentalsService = new FundamentalsService();
-    this.portfolioManagementService = new PortfolioManagementService();
+    this.portfolioManagementService = new PortfolioManagementService(config.openAiApiKey);
     this.financialDataService = new FinancialDataService();
     this.progressService = new ProgressService();
   }
@@ -64,12 +66,14 @@ export class HedgefundController {
     };
     
     // Initialize with required data
-    const initialData = {
-      tickers,
-      start_date: startDate,
-      end_date: endDate,
-      analyst_signals: {},
-      portfolio: portfolioData
+    const initialData: Partial<AgentState> = {
+      data: {
+        tickers,
+        start_date: startDate,
+        end_date: endDate,
+        analyst_signals: {},
+        portfolio: portfolioData
+      }
     };
 
     return this.agentStateService.updateAgentState(
@@ -86,7 +90,7 @@ export class HedgefundController {
   private async runRiskManagement(state: AgentState): Promise<AgentState> {
     this.progressService.updateStatus('risk_management_agent', '', 'Starting risk analysis');
     
-    const riskManagementData: Record<string, any> = {};
+    const riskManagementData: Record<string, FundamentalAnalysis> = {};
     
     // Get portfolio
     const portfolio = state.data.portfolio;
@@ -148,11 +152,13 @@ export class HedgefundController {
       state,
       [],
       {
-        analyst_signals: {
-          ...state.data.analyst_signals,
-          risk_management_agent: riskManagementData
+        data: {
+          analyst_signals: {
+            ...state.data.analyst_signals,
+            risk_management_agent: riskManagementData
+          }
         }
-      }
+      } as unknown as Partial<AgentState>
     );
     
     return updatedState;
@@ -190,7 +196,11 @@ export class HedgefundController {
     state = this.agentStateService.updateAgentState(
       state,
       fundamentalMessages,
-      { analyst_signals: fundamentalResults.data.analyst_signals }
+      { 
+        data: { 
+          analyst_signals: fundamentalResults.data.analyst_signals 
+        } 
+      } as Partial<AgentState>
     );
     
     // Run portfolio management
@@ -209,7 +219,9 @@ export class HedgefundController {
     state = this.agentStateService.updateAgentState(
       state,
       portfolioMessages,
-      portfolioResults.data
+      { 
+        data: portfolioResults.data 
+      } as Partial<AgentState>
     );
     
     // Execute trades based on portfolio decisions
@@ -266,7 +278,7 @@ export class HedgefundController {
       
       // Risk management data is stored differently than other analyst signals
       // It has a custom structure that includes current_price rather than the FundamentalAnalysis structure
-      const riskData = state.data.analyst_signals.risk_management_agent?.[ticker] as any;
+      const riskData = state.data.analyst_signals.risk_management_agent?.[ticker] as FundamentalAnalysis;
       const currentPrice = riskData?.current_price;
       
       if (!currentPrice) {
@@ -378,7 +390,11 @@ export class HedgefundController {
     return this.agentStateService.updateAgentState(
       state,
       [],
-      { portfolio }
+      { 
+        data: { 
+          portfolio 
+        } 
+      } as Partial<AgentState>
     );
   }
   
