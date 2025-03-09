@@ -20,6 +20,7 @@ const App: React.FC = () => {
     signals: {} as Record<AnalystType, Signal>,
     performance: []
   });
+  const [isControlPanelCollapsed, setIsControlPanelCollapsed] = useState<boolean>(false);
   const [tickers, setTickers] = useState<string[]>(['AAPL', 'MSFT', 'AMZN']);
   const [newTicker, setNewTicker] = useState<string>('');
   const [isConnected, setIsConnected] = useState<boolean>(false);
@@ -219,7 +220,6 @@ const App: React.FC = () => {
     }));
   };
 
-  // New login handler
   const handleLogin = () => {
     // Mock login functionality
     if (isLoggedIn) {
@@ -243,9 +243,16 @@ const App: React.FC = () => {
     }
   };
 
+  const handleControlPanelCollapse = () => {
+    setIsControlPanelCollapsed(!isControlPanelCollapsed);
+  };
+
   return (
     <div className={styles.container}>
-      <div className={styles.controlPanel}>
+      <div
+        className={styles.controlPanel}
+        style={{ maxHeight: isControlPanelCollapsed ? '60px' : 'none' }}
+      >
         <div className={styles.tickerControls}>
           <h3>Ticker Management</h3>
           <form onSubmit={handleAddTicker} className={styles.tickerForm}>
@@ -431,6 +438,9 @@ const App: React.FC = () => {
               className={isLoggedIn ? styles.logoutButton : styles.loginButton}
             >
               {isLoggedIn ? 'Logout' : 'Login'}
+            </button>
+            <button onClick={handleControlPanelCollapse} className={styles.collapseButton}>
+              {isControlPanelCollapsed ? 'Expand' : 'Collapse'}
             </button>
           </div>
 

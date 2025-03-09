@@ -214,6 +214,17 @@
   background-color: #d32f2f;
 }
 
+.collapseButton {
+  color:white;
+  margin: 15px 5px;
+  border: none;
+  border-radius: 4px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  font-size: 12px;
+}
+
 .accountDetails {
   background-color: #2a2a2a;
   border-radius: 4px;

@@ -46,7 +46,7 @@
   padding: 10px 10px;
   scrollbar-width: thin;
   scrollbar-color: #333 #121212;
-  column-gap: 80px;
+  column-gap: 100px;
   /* Horizontal gap between sections */
   align-items: start;
   /* Align items at the top so titles stay at top */
@@ -182,7 +182,7 @@
 .node {
   border-radius: 10px;
   padding: 15px;
-  width: 100%;
+  width: 110%;
   transition: all 0.3s ease;
   cursor: pointer;
   box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
@@ -477,7 +477,7 @@
   justify-content: center;
   font-weight: bold;
   font-size: 18px;
-  height: 36px;
+  height: 30px;
   width: 90px;
   border-radius: 6px;
   margin-bottom: 10px;
@@ -512,7 +512,9 @@
 
 .signalDetails {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
   gap: 5px;
   font-size: 13px;
   color: #e0e0e0;
@@ -765,7 +767,7 @@
 .actionType {
   font-weight: bold;
   font-size: 16px;
-  margin-bottom: 5px;
+  margin-right: 10px;
 }
 
 .quantity {
@@ -1004,4 +1006,15 @@
 
 .infoButton:hover {
   background-color: #1976d2;
+}
+
+.actionHeader {
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-start;
+  align-items: center;
+}
+
+.reasoningSection {
+  font-size: 12px;
 }

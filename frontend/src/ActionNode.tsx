@@ -34,12 +34,14 @@ const ActionNode: React.FC<ActionNodeProps> = ({
     }
   };
 
-  // Sample action history if not provided
-  const actionHistory = history.length > 0 ? history : [
-    { timestamp: Date.now() - 3600000 * 24 * 5, action: ActionType.BUY, ticker: 'AAPL', quantity: 50 },
-    { timestamp: Date.now() - 3600000 * 24 * 3, action: ActionType.SELL, ticker: 'MSFT', quantity: 25 },
-    { timestamp: Date.now() - 3600000 * 24 * 1, action: ActionType.HOLD, ticker: 'AMZN', quantity: 0 }
-  ];
+  // Filter history to show only actions matching this node's type
+  const filteredHistory = history.length > 0 
+    ? history.filter(item => item.action === type)
+    : [
+        { timestamp: Date.now() - 3600000 * 24 * 5, action: ActionType.BUY, ticker: 'AAPL', quantity: 50 },
+        { timestamp: Date.now() - 3600000 * 24 * 3, action: ActionType.SELL, ticker: 'MSFT', quantity: 25 },
+        { timestamp: Date.now() - 3600000 * 24 * 1, action: ActionType.HOLD, ticker: 'AMZN', quantity: 0 }
+      ].filter(item => item.action === type);
 
   return (
     <div className={styles.nodeWrapper}>
@@ -100,9 +102,9 @@ const ActionNode: React.FC<ActionNodeProps> = ({
         
         {isExpanded && (
           <div className={styles.expandedContent}>
-            <h4>Recent Actions</h4>
+            Recent {type} Actions:
             <div className={styles.actionHistory}>
-              {actionHistory.map((item, index) => (
+              {filteredHistory.map((item, index) => (
                 <div key={index} className={styles.historyItem}>
                   <div className={`${styles.historyBadge} ${styles[item.action.toLowerCase()]}`}>
                     {item.action}
@@ -114,6 +116,9 @@ const ActionNode: React.FC<ActionNodeProps> = ({
                   </div>
                 </div>
               ))}
+              {filteredHistory.length === 0 && (
+                <div className={styles.emptyHistory}>No {type} actions found</div>
+              )}
             </div>
           </div>
         )}
