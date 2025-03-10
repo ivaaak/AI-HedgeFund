@@ -33,6 +33,7 @@ interface ExtendedSignal extends Signal {
 }
 
 interface AnalystNodeProps {
+  id?: string;
   type: AnalystType;
   signal?: ExtendedSignal;
   isActive: boolean;
@@ -40,6 +41,7 @@ interface AnalystNodeProps {
 }
 
 const AnalystNode: React.FC<AnalystNodeProps> = ({
+  id,
   type,
   signal,
   isActive,
@@ -140,7 +142,7 @@ const AnalystNode: React.FC<AnalystNodeProps> = ({
   };
 
   return (
-    <div className={styles.nodeWrapper}>
+    <div className={styles.nodeWrapper} id={id}>
       <div
         className={`${styles.node} ${styles.analyst} ${styles[type.toLowerCase()]} ${isActive ? styles.active : ''} ${isExpanded ? styles.expanded : ''}`}
         onClick={toggleExpand}

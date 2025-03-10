@@ -3,6 +3,7 @@ import styles from './ProcessFlow.module.css';
 import { ActionType } from './types';
 
 interface ActionNodeProps {
+  id: string;
   type: ActionType;
   isActive: boolean;
   quantity?: number;
@@ -10,6 +11,7 @@ interface ActionNodeProps {
 }
 
 const ActionNode: React.FC<ActionNodeProps> = ({ 
+  id,
   type, 
   isActive,
   quantity,
@@ -44,7 +46,7 @@ const ActionNode: React.FC<ActionNodeProps> = ({
       ].filter(item => item.action === type);
 
   return (
-    <div className={styles.nodeWrapper}>
+    <div className={styles.nodeWrapper} id={id}>
       <div 
         className={`${styles.node} ${styles.action} ${styles[type.toLowerCase()]} ${isActive ? styles.active : ''} ${isExpanded ? styles.expanded : ''}`}
         onClick={toggleExpand}

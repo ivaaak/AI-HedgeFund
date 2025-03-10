@@ -78,6 +78,7 @@ const MOCK_RECOMMENDATIONS = {
 };
 
 interface RiskManagerNodeProps {
+  id: string;
   isActive: boolean;
   riskAssessment?: {
     riskScore?: number;
@@ -88,7 +89,8 @@ interface RiskManagerNodeProps {
   selectedTicker?: string;
 }
 
-const RiskManagerNode: React.FC<RiskManagerNodeProps> = ({ 
+const RiskManagerNode: React.FC<RiskManagerNodeProps> = ({
+  id,
   isActive, 
   riskAssessment,
   selectedTicker = 'AAPL' // Default ticker if none selected
@@ -203,7 +205,7 @@ const RiskManagerNode: React.FC<RiskManagerNodeProps> = ({
   };
 
   return (
-    <div className={styles.nodeWrapper}>
+    <div className={styles.nodeWrapper} id={id}>
       <div 
         className={`${styles.node} ${styles.riskManager} ${isActive ? styles.active : ''} ${isExpanded ? styles.expanded : ''}`}
         onClick={toggleExpand}

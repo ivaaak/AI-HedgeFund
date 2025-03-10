@@ -3,6 +3,7 @@ import styles from './ProcessFlow.module.css';
 import { LineChart, Line, ResponsiveContainer, Tooltip } from 'recharts';
 
 interface DataCollectionNodeProps {
+  id: string;
   isActive: boolean;
   tickers: string[];
   startDate: string;
@@ -12,6 +13,7 @@ interface DataCollectionNodeProps {
 }
 
 const DataCollectionNode: React.FC<DataCollectionNodeProps> = ({ 
+  id,
   isActive, 
   tickers, 
   startDate, 
@@ -78,14 +80,14 @@ const DataCollectionNode: React.FC<DataCollectionNodeProps> = ({
   const chartData = getTickerData();
 
   return (
-    <div className={styles.nodeWrapper}>
+    <div className={styles.nodeWrapper} id={id}>
       <div 
         className={`${styles.node} ${styles.dataCollection} ${isActive ? styles.active : ''} ${isExpanded ? styles.expanded : ''}`}
         onClick={toggleExpand}
       >
         <div className={styles.nodeHeader}>
           <div className={styles.headerLeft}>
-            <h3>Financial Data Service</h3>
+            <h3>Overview: Price, News, Chart</h3>
             {isActive && <span className={styles.statusIndicator}></span>}
             <button 
               className={styles.infoButton} 
@@ -108,7 +110,7 @@ const DataCollectionNode: React.FC<DataCollectionNodeProps> = ({
             >
               ?
               <div className={`${styles.nodeTooltip} ${showTooltip ? styles.visible : ''}`}>
-                <div className={styles.tooltipTitle}>Financial Data Service</div>
+                <div className={styles.tooltipTitle}>Financial Overview</div>
                 <div className={styles.tooltipRow}>
                   <span className={styles.tooltipLabel}>Function:</span>
                   <span>Financial Data Collection</span>

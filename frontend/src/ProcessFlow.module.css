@@ -17,10 +17,6 @@
     display: none;
   }
 
-  .nodeWrapper .flowIndicator {
-    display: none;
-  }
-
   .processSection {
     margin-bottom: 30px;
   }
@@ -36,7 +32,7 @@
 .processFlow {
   display: grid;
   /* Grid layout */
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(4, 1fr) 0.75fr;
   /* 5 columns for each section */
   position: relative;
   background-color: #121212;
@@ -51,39 +47,7 @@
   align-items: start;
   /* Align items at the top so titles stay at top */
   min-height: 500px;
-  /* Set minimum height to ensure enough space */
 }
-
-/* .processFlow::-webkit-scrollbar {
-  height: 8px;
-} */
-
-/* .processFlow::-webkit-scrollbar-track {
-  background: #121212;
-  border-radius: 4px;
-} */
-
-/* .processFlow::-webkit-scrollbar-thumb {
-  background-color: #333;
-  border-radius: 4px;
-} */
-
-/* Process flow path line
-.processFlow::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 20px;
-  right: 20px;
-  height: 4px;
-  background: linear-gradient(90deg,
-      rgba(25, 118, 210, 0.2),
-      rgba(25, 118, 210, 0.5) 30%,
-      rgba(25, 118, 210, 0.7) 70%,
-      rgba(25, 118, 210, 0.2) 100%);
-  transform: translateY(-50%);
-  z-index: 1;
-} */
 
 .processSection {
   display: flex;
@@ -92,6 +56,7 @@
   z-index: 2;
   padding: 0;
   height: 100%;
+  width: 100%;
 }
 
 .sectionTitle {
@@ -144,38 +109,6 @@
   position: relative;
   width: 100%;
   overflow: visible;
-}
-
-/* Flow indicator animation */
-.flowIndicator {
-  position: absolute;
-  z-index: 3;
-  right: -30px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background-color: #1976d2;
-  opacity: 0.8;
-  animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-  0% {
-    transform: translateY(-50%) scale(0.8);
-    opacity: 0.5;
-  }
-
-  50% {
-    transform: translateY(-50%) scale(1.1);
-    opacity: 0.8;
-  }
-
-  100% {
-    transform: translateY(-50%) scale(0.8);
-    opacity: 0.5;
-  }
 }
 
 /* Enhanced Node Styles - Now with colored borders instead of backgrounds */
@@ -726,9 +659,6 @@
   border-radius: 8px;
   border: 2px solid #333;
   width: 70%;
-  /* Make action nodes narrower */
-  margin: 0 auto;
-  /* Center the narrower nodes */
 }
 
 .buy {
@@ -1017,4 +947,71 @@
 
 .reasoningSection {
   font-size: 12px;
+}
+
+
+/* Connection lines between nodes */
+.connection {
+  position: absolute;
+  height: 2px;
+  background: linear-gradient(90deg, rgba(144, 202, 249, 1), rgba(144, 202, 249, 1));
+  z-index: 1;
+  transform-origin: left center;
+}
+
+.connectionAnimation {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 20px;
+  background: linear-gradient(90deg, 
+    rgba(144, 202, 249, 0) 100%, 
+    rgb(255, 255, 255) 100%, 
+    rgba(144, 202, 249, 0) 100%
+  );
+  animation: flowAnimation 2s infinite linear;
+}
+
+@keyframes flowAnimation {
+  0% {
+    transform: translateX(0);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(calc(100% * 5)); /* Multiplier to ensure it travels full width */
+    opacity: 0;
+  }
+}
+
+/* Specific connection colors for different node types */
+.connection-analyst {
+  background: linear-gradient(90deg, rgb(255, 255, 255)gb(255, 255, 255));
+}
+
+.connection-risk {
+  background: linear-gradient(90deg, rgb(255, 255, 255), rgb(255, 255, 255));
+}
+
+.connection-portfolio {
+  background: linear-gradient(90deg, rgb(255, 255, 255), rgb(255, 255, 255));
+}
+
+.connection-action {
+  background: linear-gradient(90deg, rgb(255, 255, 255), rgba(0, 255, 13, 0.8));
+}
+
+.processFlow {
+  position: relative;
+}
+
+.nodeWrapper {
+  position: relative;
+  z-index: 5;
 }

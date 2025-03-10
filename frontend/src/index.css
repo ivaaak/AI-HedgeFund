@@ -95,8 +95,4 @@ button:focus-visible {
   .processFlow::before {
       display: none;
   }
-
-  .flowIndicator {
-      display: none;
-  }
 }

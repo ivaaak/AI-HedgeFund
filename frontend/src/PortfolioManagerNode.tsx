@@ -3,6 +3,7 @@ import styles from './ProcessFlow.module.css';
 import { ActionType, Decision } from './types';
 
 interface PortfolioManagerNodeProps {
+  id: string;
   isActive: boolean;
   decision?: Decision;
   portfolioMetrics?: {
@@ -13,6 +14,7 @@ interface PortfolioManagerNodeProps {
 }
 
 const PortfolioManagerNode: React.FC<PortfolioManagerNodeProps> = ({
+  id,
   isActive,
   decision,
   portfolioMetrics
@@ -57,7 +59,7 @@ const PortfolioManagerNode: React.FC<PortfolioManagerNodeProps> = ({
   }
 
   return (
-    <div className={styles.nodeWrapper}>
+    <div className={styles.nodeWrapper} id={id}>
       <div
         className={`${styles.node} ${styles.portfolioManager} ${isActive ? styles.active : ''} ${isExpanded ? styles.expanded : ''}`}
         onClick={toggleExpand}
