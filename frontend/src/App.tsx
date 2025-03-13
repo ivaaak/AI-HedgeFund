@@ -235,8 +235,8 @@ const App: React.FC = () => {
       setIsLoggedIn(true);
       setAccountInfo({
         username: 'ivaaak',
-        accountBalance: 125000.55,
-        portfolioValue: 234567.89,
+        accountBalance: 125.55,
+        portfolioValue: 234.89,
         lastLogin: new Date().toLocaleString(),
         subscriptionTier: 'Premium'
       });
