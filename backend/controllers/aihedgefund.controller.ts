@@ -1,5 +1,4 @@
 import { AgentStateService } from "../services/agentstate.service";
-import { FinancialDataService } from "../services/financialdata.service";
 import { FundamentalsService } from "../services/fundamentals.service";
 import { PortfolioManagementService } from "../services/portfoliomanagement.service";
 import { ProgressService } from "../services/progress.service";
@@ -13,6 +12,7 @@ import {
   FundamentalAnalysis
 } from "../data/models";
 import config from "../config";
+import { FinancialDataService } from "../services/financialData.service";
 
 // Define interfaces for missing types
 interface BaseMessage {
@@ -48,7 +48,7 @@ export class HedgefundController {
     this.agentStateService = new AgentStateService();
     this.fundamentalsService = new FundamentalsService();
     this.portfolioManagementService = new PortfolioManagementService(config.openAiApiKey);
-    this.financialDataService = new FinancialDataService();
+    this.financialDataService = new FinancialDataService(config.alphaVantageApiKey);
     this.progressService = new ProgressService();
   }
 

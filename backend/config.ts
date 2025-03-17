@@ -26,7 +26,8 @@ const envConfig = {
   financialApiBaseUrl: process.env.FINANCIAL_API_BASE_URL || 'https://api.financialdatasets.ai',
   financialApiKey: process.env.FINANCIAL_API_KEY || '',
   openAiApiKey: process.env.OPENAI_API_KEY || '',
-  useAI: process.env.USE_AI === 'true'
+  useAI: process.env.USE_AI === 'true',
+  alphaVantageApiKey: process.env.ALPHA_VANTAGE_API_KEY || ''
 };
 
 // Merge default and environment configurations
