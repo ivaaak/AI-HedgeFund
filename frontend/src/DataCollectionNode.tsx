@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import styles from './ProcessFlow.module.css';
-import { LineChart, Line, ResponsiveContainer, Tooltip } from 'recharts';
+import { LineChart, Line, XAxis, ResponsiveContainer, Tooltip, CartesianGrid, YAxis } from 'recharts';
+import ApiService from './api.service';
 
 interface DataCollectionNodeProps {
   id: string;
@@ -10,6 +11,25 @@ interface DataCollectionNodeProps {
   endDate: string;
   isLoading: boolean;
   data?: { [ticker: string]: any[] }; // Sample price data for mini-charts, keyed by ticker
+}
+
+interface Price {
+  time: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+}
+
+interface TickerFinancialData {
+  prices: Price[] | null;
+  pricesLoaded: boolean;
+  overview: any | null;
+  overviewLoaded: boolean;
+  metrics: any | null;
+  metricsLoaded: boolean;
+  error?: string | null;
 }
 
 const DataCollectionNode: React.FC<DataCollectionNodeProps> = ({ 
@@ -25,6 +45,34 @@ const DataCollectionNode: React.FC<DataCollectionNodeProps> = ({
   const [selectedTicker, setSelectedTicker] = useState<string | null>(tickers.length > 0 ? tickers[0] : null);
   const [showTooltip, setShowTooltip] = useState(false);
   const tooltipTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [tickerData, setTickerData] = useState<{ [ticker: string]: TickerFinancialData }>({});
+  const [loadingTickers, setLoadingTickers] = useState<string[]>([]);
+  const [globalError, setGlobalError] = useState<string | null>(null);
+  
+  // Initialize ticker data state whenever tickers change
+  useEffect(() => {
+    const newTickerData = { ...tickerData };
+    let stateChanged = false;
+    
+    tickers.forEach(ticker => {
+      if (!newTickerData[ticker]) {
+        newTickerData[ticker] = {
+          prices: null,
+          pricesLoaded: false,
+          overview: null,
+          overviewLoaded: false,
+          metrics: null,
+          metricsLoaded: false,
+          error: null
+        };
+        stateChanged = true;
+      }
+    });
+    
+    if (stateChanged) {
+      setTickerData(newTickerData);
+    }
+  }, [tickers]);
   
   // Update selected ticker if the tickers list changes and current selection is no longer valid
   useEffect(() => {
@@ -32,6 +80,119 @@ const DataCollectionNode: React.FC<DataCollectionNodeProps> = ({
       setSelectedTicker(tickers.length > 0 ? tickers[0] : null);
     }
   }, [tickers, selectedTicker]);
+
+  // Fetch data for selected ticker when expanded
+  useEffect(() => {
+    if (!isExpanded || !selectedTicker) return;
+    
+    const fetchTickerData = async () => {
+      // Skip if already loaded or currently loading
+      if (loadingTickers.includes(selectedTicker)) return;
+      
+      const currentTickerData = tickerData[selectedTicker];
+      if (!currentTickerData) return;
+      
+      setGlobalError(null);
+      
+      // Create an array of data fetch tasks
+      const fetchTasks = [];
+      
+      // Only fetch prices if not already loaded or if there was an error
+      if (!currentTickerData.pricesLoaded) {
+        fetchTasks.push(async () => {
+          try {
+            setLoadingTickers(prev => [...prev, selectedTicker]);
+            const prices = await ApiService.getPrices(selectedTicker, startDate, endDate);
+            setTickerData(prev => ({
+              ...prev,
+              [selectedTicker]: {
+                ...prev[selectedTicker],
+                prices,
+                pricesLoaded: true,
+                error: null
+              }
+            }));
+          } catch (err) {
+            console.error(`Error fetching prices for ${selectedTicker}:`, err);
+            setTickerData(prev => ({
+              ...prev,
+              [selectedTicker]: {
+                ...prev[selectedTicker],
+                prices: null,
+                pricesLoaded: true, // Mark as loaded to prevent continuous retries
+                error: `Failed to load price data for ${selectedTicker}. ${err instanceof Error ? err.message : ''}`
+              }
+            }));
+          }
+        });
+      }
+      
+      // Only fetch metrics if not already loaded
+      if (!currentTickerData.metricsLoaded) {
+        fetchTasks.push(async () => {
+          try {
+            const metrics = await ApiService.getFinancialMetrics(selectedTicker, endDate);
+            setTickerData(prev => ({
+              ...prev,
+              [selectedTicker]: {
+                ...prev[selectedTicker],
+                metrics: metrics.length > 0 ? metrics[0] : null,
+                metricsLoaded: true
+              }
+            }));
+          } catch (err) {
+            console.error(`Error fetching metrics for ${selectedTicker}:`, err);
+            setTickerData(prev => ({
+              ...prev,
+              [selectedTicker]: {
+                ...prev[selectedTicker],
+                metrics: null,
+                metricsLoaded: true
+              }
+            }));
+          }
+        });
+      }
+      
+      // Only fetch overview if not already loaded
+      if (!currentTickerData.overviewLoaded) {
+        fetchTasks.push(async () => {
+          try {
+            const overview = await ApiService.getFinancialOverview(selectedTicker);
+            setTickerData(prev => ({
+              ...prev,
+              [selectedTicker]: {
+                ...prev[selectedTicker],
+                overview,
+                overviewLoaded: true
+              }
+            }));
+          } catch (err) {
+            console.error(`Error fetching overview for ${selectedTicker}:`, err);
+            setTickerData(prev => ({
+              ...prev,
+              [selectedTicker]: {
+                ...prev[selectedTicker],
+                overview: null,
+                overviewLoaded: true
+              }
+            }));
+          }
+        });
+      }
+      
+      // Execute all fetch tasks
+      if (fetchTasks.length > 0) {
+        try {
+          await Promise.all(fetchTasks.map(task => task()));
+        } finally {
+          setLoadingTickers(prev => prev.filter(t => t !== selectedTicker));
+        }
+      }
+    };
+
+    fetchTickerData();
+  }, [selectedTicker, isExpanded, startDate, endDate, tickerData, loadingTickers]);
 
   const toggleExpand = (e: React.MouseEvent) => {
     // Prevent triggering when clicking on ticker badges
@@ -47,6 +208,22 @@ const DataCollectionNode: React.FC<DataCollectionNodeProps> = ({
       setIsExpanded(true); // Expand the node when a ticker is selected
     }
   };
+  
+  // Handle refresh for a ticker
+  const handleRefresh = (ticker: string) => {
+    if (loadingTickers.includes(ticker)) return;
+    
+    setTickerData(prev => ({
+      ...prev,
+      [ticker]: {
+        ...prev[ticker],
+        pricesLoaded: false,
+        metricsLoaded: false,
+        overviewLoaded: false,
+        error: null
+      }
+    }));
+  };
 
   // Cleanup tooltip timeout on unmount
   useEffect(() => {
@@ -57,27 +234,69 @@ const DataCollectionNode: React.FC<DataCollectionNodeProps> = ({
     };
   }, []);
 
-  // Generate sample data for each ticker if real data not available
-  const generateSampleData = (ticker: string) => {
-    const seed = ticker.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
-    return Array(20).fill(0).map((_, i) => ({
-      time: i,
-      value: Math.random() * 20 + 140 - (i % 5 === 0 ? 10 : 0) + (seed % 50)
-    }));
-  };
-
-  // Get data for the selected ticker
-  const getTickerData = () => {
+  // Get data for the selected ticker's chart
+  const getChartData = () => {
     if (!selectedTicker) return [];
     
+    // If we have real data from the API
+    const currentTickerData = tickerData[selectedTicker];
+    if (currentTickerData?.prices && Array.isArray(currentTickerData.prices) && currentTickerData.prices.length > 0) {
+      // Create a properly formatted chart data array and sort by date
+      return [...currentTickerData.prices] // Create a copy to avoid mutation
+        .sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime()) // Sort by date ascending
+        .map(price => ({
+          date: price.time,
+          value: price.close
+        }));
+    }
+    
+    // If we have data passed from props
     if (data && data[selectedTicker]) {
       return data[selectedTicker];
     }
     
+    // Otherwise use placeholder data
     return generateSampleData(selectedTicker);
   };
 
-  const chartData = getTickerData();
+  // Generate sample data for each ticker if real data not available
+  const generateSampleData = (ticker: string) => {
+    const seed = ticker.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
+    return Array(20).fill(0).map((_, i) => ({
+      date: new Date(new Date(startDate).getTime() + i * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      value: Math.random() * 20 + 140 - (i % 5 === 0 ? 10 : 0) + (seed % 50)
+    }));
+  };
+  
+  // Format currency for display
+  const formatCurrency = (value: number | null | undefined) => {
+    if (value === null || value === undefined) return 'N/A';
+    
+    if (value >= 1e12) return `$${(value / 1e12).toFixed(2)}T`;
+    if (value >= 1e9) return `$${(value / 1e9).toFixed(2)}B`;
+    if (value >= 1e6) return `$${(value / 1e6).toFixed(2)}M`;
+    if (value >= 1e3) return `$${(value / 1e3).toFixed(2)}K`;
+    return `$${value.toFixed(2)}`;
+  };
+  
+  // Format percentage for display
+  const formatPercentage = (value: number | null | undefined) => {
+    if (value === null || value === undefined) return 'N/A';
+    return `${value > 0 ? '+' : ''}${value.toFixed(2)}%`;
+  };
+
+  const chartData = getChartData();
+  const isTickerLoading = Boolean(selectedTicker && loadingTickers.includes(selectedTicker));
+  
+  // Get the data for the selected ticker
+  const selectedTickerData = selectedTicker ? tickerData[selectedTicker] : null;
+  const hasError = selectedTickerData?.error;
+  const overview = selectedTickerData?.overview;
+  const metrics = selectedTickerData?.metrics;
+  
+  const recordCount = selectedTicker && selectedTickerData?.prices ? selectedTickerData.prices.length : 0;
+  const lastUpdated = selectedTicker && selectedTickerData?.pricesLoaded && selectedTickerData.prices?.length ? 
+    new Date().toLocaleTimeString() : '-';
 
   return (
     <div className={styles.nodeWrapper} id={id}>
@@ -117,7 +336,7 @@ const DataCollectionNode: React.FC<DataCollectionNodeProps> = ({
                 </div>
                 <div className={styles.tooltipRow}>
                   <span className={styles.tooltipLabel}>Endpoint:</span>
-                  <span>/api/data/fetch</span>
+                  <span>/api/financial-data/prices</span>
                 </div>
                 <div className={styles.tooltipRow}>
                   <span className={styles.tooltipLabel}>Input:</span>
@@ -129,7 +348,7 @@ const DataCollectionNode: React.FC<DataCollectionNodeProps> = ({
                 </div>
                 <div className={styles.tooltipRow}>
                   <span className={styles.tooltipLabel}>Description:</span>
-                  <span>Fetches market data from financial providers</span>
+                  <span>Fetches market data from Alpha Vantage API</span>
                 </div>
               </div>
             </button>
@@ -144,7 +363,7 @@ const DataCollectionNode: React.FC<DataCollectionNodeProps> = ({
             {tickers.map(ticker => (
               <span 
                 key={ticker} 
-                className={`${styles.tickerBadge} ${selectedTicker === ticker ? styles.selected : ''}`}
+                className={`${styles.tickerBadge} ${selectedTicker === ticker ? styles.selected : ''} ${loadingTickers.includes(ticker) ? styles.loading : ''}`}
                 onClick={(e) => handleTickerClick(ticker, e)}
                 style={{ 
                   cursor: 'pointer',
@@ -153,6 +372,9 @@ const DataCollectionNode: React.FC<DataCollectionNodeProps> = ({
                 }}
               >
                 {ticker}
+                {loadingTickers.includes(ticker) && (
+                  <span className={styles.badgeLoader}></span>
+                )}
               </span>
             ))}
           </div>
@@ -162,33 +384,195 @@ const DataCollectionNode: React.FC<DataCollectionNodeProps> = ({
           
           {isExpanded && (
             <div className={styles.expandedContent}>
-              <div className={styles.miniChartContainer}>
-                <h4>{selectedTicker ? `${selectedTicker} Price Overview` : 'Select a ticker'}</h4>
-                {selectedTicker ? (
-                  <ResponsiveContainer width="100%" height={60}>
-                    <LineChart data={chartData}>
-                      <Line 
-                        type="monotone" 
-                        dataKey="value" 
-                        stroke="#42a5f5" 
-                        dot={false}
-                        isAnimationActive={false}
-                      />
-                      <Tooltip />
-                    </LineChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className={styles.placeholder}>No ticker selected</div>
-                )}
-                <div className={styles.dataStats}>
-                  <div className={styles.stat}>
-                    <span>Records:</span> {selectedTicker ? 90 : 0}
-                  </div>
-                  <div className={styles.stat}>
-                    <span>Last Updated:</span> {new Date().toLocaleTimeString()}
-                  </div>
+              {globalError && (
+                <div className={styles.errorMessage}>
+                  {globalError}
+                  <button onClick={() => setGlobalError(null)} className={styles.dismissButton}>✕</button>
                 </div>
-              </div>
+              )}
+              
+              {selectedTicker && (
+                <div className={styles.tickerOverview}>
+                  <div className={styles.tickerHeader}>
+                    <h4>{selectedTicker} Overview</h4>
+                    <button 
+                      className={styles.refreshButton}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (selectedTicker) {
+                          handleRefresh(selectedTicker);
+                        }
+                      }}
+                      disabled={isTickerLoading}
+                    >
+                      Refresh
+                    </button>
+                  </div>
+                  
+                  {hasError && (
+                    <div className={styles.errorMessage}>
+                      {hasError}
+                      <button onClick={() => {
+                        setTickerData(prev => ({
+                          ...prev,
+                          [selectedTicker]: {
+                            ...prev[selectedTicker],
+                            error: null
+                          }
+                        }));
+                      }} className={styles.dismissButton}>✕</button>
+                    </div>
+                  )}
+                  
+                  {isTickerLoading ? (
+                    <div className={styles.loadingIndicator}>
+                      <div className={styles.spinner}></div>
+                      <p>Loading financial data...</p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className={styles.keyMetrics}>
+                        <div className={styles.metricGroup}>
+                          <div className={styles.metric}>
+                            <span className={styles.metricLabel}>Last Price</span>
+                            <span className={styles.metricValue}>
+                              {overview?.latestPrice ? `$${overview.latestPrice.toFixed(2)}` : 'N/A'}
+                            </span>
+                          </div>
+                          
+                          <div className={styles.metric}>
+                            <span className={styles.metricLabel}>Market Cap</span>
+                            <span className={styles.metricValue}>
+                              {formatCurrency(overview?.marketCap)}
+                            </span>
+                          </div>
+                          
+                          <div className={styles.metric}>
+                            <span className={styles.metricLabel}>PE Ratio</span>
+                            <span className={styles.metricValue}>
+                              {metrics?.price_to_earnings_ratio ? 
+                                metrics.price_to_earnings_ratio.toFixed(2) : 'N/A'}
+                            </span>
+                          </div>
+                        </div>
+                        
+                        <div className={styles.metricGroup}>
+                          <div className={styles.metric}>
+                            <span className={styles.metricLabel}>Net Margin</span>
+                            <span className={styles.metricValue}>
+                              {metrics?.net_margin ? 
+                                formatPercentage(metrics.net_margin) : 'N/A'}
+                            </span>
+                          </div>
+                          
+                          <div className={styles.metric}>
+                            <span className={styles.metricLabel}>ROE</span>
+                            <span className={styles.metricValue}>
+                              {metrics?.return_on_equity ? 
+                                formatPercentage(metrics.return_on_equity) : 'N/A'}
+                            </span>
+                          </div>
+                          
+                          <div className={styles.metric}>
+                            <span className={styles.metricLabel}>Debt/Equity</span>
+                            <span className={styles.metricValue}>
+                              {metrics?.debt_to_equity ? 
+                                metrics.debt_to_equity.toFixed(2) : 'N/A'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className={styles.miniChartContainer}>
+                        <h5>Price Chart</h5>
+                        {chartData.length > 0 ? (
+                          <ResponsiveContainer width="100%" height={150}>
+                            <LineChart data={chartData}>
+                              <XAxis 
+                                dataKey="date" 
+                                tick={{fontSize: 10}}
+                                tickFormatter={(date) => {
+                                  return new Date(date).toLocaleDateString(undefined, {
+                                    month: 'short',
+                                    day: 'numeric'
+                                  });
+                                }}
+                              />
+                              <YAxis 
+                                domain={['auto', 'auto']}
+                                tick={{fontSize: 10}}
+                                width={40}
+                              />
+                              <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
+                              <Line 
+                                type="monotone" 
+                                dataKey="value" 
+                                stroke="#42a5f5" 
+                                dot={false}
+                                isAnimationActive={false}
+                              />
+                              <Tooltip 
+                                formatter={(value: number) => [`$${value.toFixed(2)}`, 'Price']}
+                                labelFormatter={(date) => new Date(date).toLocaleDateString()}
+                              />
+                            </LineChart>
+                          </ResponsiveContainer>
+                        ) : (
+                          <div className={styles.noData}>
+                            {selectedTickerData?.pricesLoaded ? 
+                              'No price data available' : 
+                              'Loading price data...'}
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className={styles.additionalInfo}>
+                        <div className={styles.dataStats}>
+                          <div className={styles.stat}>
+                            <span>Records:</span> {recordCount}
+                          </div>
+                          <div className={styles.stat}>
+                            <span>Last Updated:</span> {lastUpdated}
+                          </div>
+                        </div>
+                        
+                        <div className={styles.additionalMetrics}>
+                          <h5>Additional Metrics</h5>
+                          <table className={styles.metricsTable}>
+                            <tbody>
+                              <tr>
+                                <td>P/B Ratio</td>
+                                <td>{metrics?.price_to_book_ratio ? 
+                                  metrics.price_to_book_ratio.toFixed(2) : 'N/A'}</td>
+                              </tr>
+                              <tr>
+                                <td>P/S Ratio</td>
+                                <td>{metrics?.price_to_sales_ratio ? 
+                                  metrics.price_to_sales_ratio.toFixed(2) : 'N/A'}</td>
+                              </tr>
+                              <tr>
+                                <td>EV/EBITDA</td>
+                                <td>{metrics?.enterprise_value_to_ebitda_ratio ? 
+                                  metrics.enterprise_value_to_ebitda_ratio.toFixed(2) : 'N/A'}</td>
+                              </tr>
+                              <tr>
+                                <td>Current Ratio</td>
+                                <td>{metrics?.current_ratio ? 
+                                  metrics.current_ratio.toFixed(2) : 'N/A'}</td>
+                              </tr>
+                              <tr>
+                                <td>EPS</td>
+                                <td>{metrics?.earnings_per_share ? 
+                                  formatCurrency(metrics.earnings_per_share) : 'N/A'}</td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
           )}
           
