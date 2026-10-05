@@ -4,7 +4,7 @@ Performs sophisticated technical analysis using multiple trading strategies acro
 Implements five core strategies: Trend Following, Mean Reversion, Momentum, Volatility Analysis, and Statistical Arbitrage
 Calculates technical indicators including EMAs, RSI, Bollinger Bands, and Hurst exponent
 Combines signals using a weighted ensemble approach to generate overall predictions
-Includes mock price data methods that would be replaced with real market data APIs in production
+Uses daily prices from the shared FinancialDataService (Alpha Vantage); strategies without enough price history are left out of the combined signal
 
 
 TechnicalAnalystController:

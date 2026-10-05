@@ -1,26 +1,26 @@
 import { Request, Response } from 'express';
-import { PortfolioManagementService } from '../services/portfoliomanagement.service';
-import { AgentState } from '../data/models';
-import config from '../config';
+import { HttpError } from '../middleware/middleware';
+import { parsePortfolio, parseTickers } from '../middleware/validation';
+import { PortfolioManagementService } from '../services/portfolioManagement.service';
 
 export class PortfolioManagementController {
-  private portfolioService: PortfolioManagementService;
-
-  constructor() {
-    this.portfolioService = new PortfolioManagementService(config.openAiApiKey);
-  }
+  constructor(private portfolioService: PortfolioManagementService = new PortfolioManagementService()) {}
 
   public managePortfolio = async (req: Request, res: Response): Promise<void> => {
-    try {
-      const state: AgentState = req.body;
-      const result = await this.portfolioService.managePortfolio(state);
-      res.json(result);
-    } catch (error) {
-      console.error('Portfolio Management Error:', error);
-      res.status(500).json({
-        error: 'Failed to process portfolio management request',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      });
+    const { analyst_signals, risk } = req.body || {};
+
+    if (!analyst_signals || typeof analyst_signals !== 'object') {
+      throw new HttpError(400, 'analyst_signals is required');
     }
+    if (!risk || typeof risk !== 'object') {
+      throw new HttpError(400, 'risk is required');
+    }
+
+    res.json(await this.portfolioService.managePortfolio({
+      tickers: parseTickers(req.body.tickers),
+      analyst_signals,
+      risk,
+      portfolio: parsePortfolio(req.body.portfolio)
+    }));
   };
 }

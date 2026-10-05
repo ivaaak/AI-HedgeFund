@@ -1,6 +1,7 @@
 // riskManager.routes.ts
 import { Router } from 'express';
 import { RiskManagerController } from '../controllers/riskManager.controller';
+import { asyncHandler } from '../middleware/middleware';
 
 const router = Router();
 const controller = new RiskManagerController();
@@ -9,48 +10,41 @@ const controller = new RiskManagerController();
  * @swagger
  * /api/risk/analyze:
  *   post:
- *     summary: Analyze portfolio risk
+ *     summary: Analyze position limits and price risk
  *     tags:
  *       - Risk Management
- *     description: Analyzes the risk metrics of a given portfolio
+ *     description: Calculates the remaining position limit, volatility and drawdown for each ticker
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
- *             type: object
- *             required:
- *               - portfolio
- *             properties:
- *               portfolio:
- *                 type: array
- *                 items:
- *                   type: object
- *                   properties:
- *                     ticker:
- *                       type: string
- *                     allocation:
- *                       type: number
+ *             allOf:
+ *               - $ref: '#/components/schemas/AnalysisRequest'
+ *               - type: object
+ *                 properties:
+ *                   portfolio:
+ *                     $ref: '#/components/schemas/Portfolio'
  *     responses:
  *       200:
- *         description: Successfully analyzed portfolio risk
+ *         description: Risk analysis per ticker
  *         content:
  *           application/json:
  *             schema:
  *               type: object
  *               properties:
- *                 riskScore:
- *                   type: number
- *                 volatility:
- *                   type: number
- *                 sharpeRatio:
- *                   type: number
+ *                 results:
+ *                   type: object
+ *                   additionalProperties:
+ *                     $ref: '#/components/schemas/RiskAnalysis'
+ *                 errors:
+ *                   type: object
+ *                   additionalProperties:
+ *                     type: string
  *       400:
  *         description: Invalid input parameters
- *       500:
- *         description: Server error
  */
-router.post('/analyze', controller.analyzeRisk);
+router.post('/analyze', asyncHandler(controller.analyzeRisk));
 
 /**
  * @swagger
@@ -59,7 +53,7 @@ router.post('/analyze', controller.analyzeRisk);
  *     summary: Generate risk-based recommendations
  *     tags:
  *       - Risk Management
- *     description: Provides recommendations to optimize portfolio based on risk parameters
+ *     description: Combines technical and fundamental signals into position-sized recommendations
  *     requestBody:
  *       required: true
  *       content:
@@ -67,38 +61,29 @@ router.post('/analyze', controller.analyzeRisk);
  *           schema:
  *             type: object
  *             required:
- *               - portfolio
- *               - riskProfile
+ *               - risk_analysis
  *             properties:
+ *               technical_signals:
+ *                 type: object
+ *                 additionalProperties:
+ *                   $ref: '#/components/schemas/AnalystSignal'
+ *               fundamental_signals:
+ *                 type: object
+ *                 additionalProperties:
+ *                   $ref: '#/components/schemas/AnalystSignal'
+ *               risk_analysis:
+ *                 type: object
+ *                 description: The results of /api/risk/analyze
+ *                 additionalProperties:
+ *                   $ref: '#/components/schemas/RiskAnalysis'
  *               portfolio:
- *                 type: array
- *                 items:
- *                   type: object
- *                   properties:
- *                     ticker:
- *                       type: string
- *                     allocation:
- *                       type: number
- *               riskProfile:
- *                 type: string
- *                 enum: [conservative, moderate, aggressive]
+ *                 $ref: '#/components/schemas/Portfolio'
  *     responses:
  *       200:
- *         description: Successfully generated risk recommendations
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 recommendations:
- *                   type: array
- *                   items:
- *                     type: object
+ *         description: Recommendation per ticker and a portfolio summary
  *       400:
  *         description: Invalid input parameters
- *       500:
- *         description: Server error
  */
-router.post('/recommendations', controller.generateRecommendations);
+router.post('/recommendations', asyncHandler(controller.generateRecommendations));
 
 export default router;

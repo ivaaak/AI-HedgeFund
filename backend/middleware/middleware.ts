@@ -1,14 +1,34 @@
-import { Request, Response, NextFunction } from 'express';
+import { Request, Response, NextFunction, RequestHandler } from 'express';
+import config from '../config';
+
+/**
+ * Error carrying the HTTP status the client should receive
+ */
+export class HttpError extends Error {
+  constructor(public status: number, message: string) {
+    super(message);
+    this.name = 'HttpError';
+  }
+}
+
+// Wraps async route handlers so rejections reach the error handler
+export const asyncHandler = (
+  handler: (req: Request, res: Response) => Promise<void>
+): RequestHandler => (req, res, next) => {
+  handler(req, res).catch(next);
+};
 
 // Error handling middleware
-export const errorHandler = (err: Error, req: Request, res: Response, next: NextFunction): void => {
-  console.error('Server Error:', err);
-  
-  const statusCode = res.statusCode !== 200 ? res.statusCode : 500;
-  
-  res.status(statusCode).json({
-    message: err.message,
-    stack: process.env.NODE_ENV === 'production' ? '🥞' : err.stack,
+export const errorHandler = (err: Error, req: Request, res: Response, _next: NextFunction): void => {
+  const status = err instanceof HttpError ? err.status : 500;
+
+  if (status >= 500) {
+    console.error('Server Error:', err);
+  }
+
+  res.status(status).json({
+    error: err.message,
+    ...(status >= 500 && config.env !== 'production' ? { stack: err.stack } : {})
   });
 };
 
@@ -20,18 +40,18 @@ export const requestLogger = (req: Request, res: Response, next: NextFunction): 
 
 // API key validation middleware
 export const apiKeyValidator = (req: Request, res: Response, next: NextFunction): void => {
-  const apiKey = req.headers['x-api-key'] as string;
-  
   // Skip validation if API_KEY_REQUIRED is not set to true
-  if (process.env.API_KEY_REQUIRED !== 'true') {
+  if (!config.apiKeyRequired) {
     return next();
   }
-  
+
+  const apiKey = req.headers['x-api-key'];
+
   // Validate the API key
-  if (!apiKey || apiKey !== process.env.API_KEY) {
-    res.status(401).json({ message: 'Invalid or missing API key' });
+  if (!config.apiKey || apiKey !== config.apiKey) {
+    res.status(401).json({ error: 'Invalid or missing API key' });
     return;
   }
-  
+
   next();
 };

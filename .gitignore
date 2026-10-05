@@ -5,3 +5,7 @@ node_modules
 //ignore llm model file
 backend/models/* 
 backend-local-model/models/* 
+
+# cached market data responses
+.cache
+dist

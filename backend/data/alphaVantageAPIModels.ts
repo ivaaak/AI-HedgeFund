@@ -127,3 +127,28 @@ export interface AlphaVantageDailyPrice {
     annualReports: AlphaVantageCashFlowReport[];
     quarterlyReports: AlphaVantageCashFlowReport[];
   }
+export interface AlphaVantageNewsItem {
+  title: string;
+  url: string;
+  time_published: string; // YYYYMMDDTHHMMSS
+  source: string;
+  overall_sentiment_score: number;
+  overall_sentiment_label: string;
+  ticker_sentiment?: Array<{
+    ticker: string;
+    relevance_score: string;
+    ticker_sentiment_score: string;
+    ticker_sentiment_label: string;
+  }>;
+}
+
+export interface AlphaVantageInsiderTransaction {
+  transaction_date: string;
+  ticker: string;
+  executive: string;
+  executive_title: string;
+  security_type: string;
+  acquisition_or_disposal: string; // "A" or "D"
+  shares: string;
+  share_price: string;
+}

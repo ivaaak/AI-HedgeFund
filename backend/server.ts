@@ -1,68 +1,73 @@
+import path from 'path';
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import swaggerUi from 'swagger-ui-express';
 import swaggerJsdoc from 'swagger-jsdoc';
 
-dotenv.config();
-
+import config from './config';
 import routes from './routes';
 import { errorHandler, requestLogger, apiKeyValidator } from './middleware/middleware';
 
 const app = express();
-const port = process.env.PORT || 3000;
-
-console.log("process.env.OPENAI_API_KEY", process.env.OPENAI_API_KEY)
 
 // Swagger configuration
 const swaggerOptions = {
   definition: {
     openapi: '3.0.0',
     info: {
-      title: 'API Documentation',
+      title: 'AI Hedge Fund API',
       version: '1.0.0',
-      description: 'API documentation for your Express server',
+      description: 'Financial data, analyst signals, risk management and portfolio decisions',
     },
     servers: [
       {
-        url: `http://localhost:${port}`,
+        url: `http://localhost:${config.port}`,
         description: 'Development server',
       },
     ],
+    ...(config.apiKeyRequired ? { security: [{ ApiKeyAuth: [] }] } : {}),
   },
-  apis: [
-    './routes/*.ts', 
-    './controllers/*.ts',
-    './data/*.ts'  // Add this if you create schema definitions
-  ],};
+  // Resolved from this file so the docs also work from the compiled build
+  apis: [path.join(__dirname, 'routes', '*.{ts,js}').split(path.sep).join('/')],
+};
 
 const swaggerSpec = swaggerJsdoc(swaggerOptions);
 
-app.use(cors()); // Enable CORS
-app.use(express.json({ limit: '10mb' })); // Parse JSON bodies with increased size limit
+app.use(cors(config.corsOrigin ? { origin: config.corsOrigin.split(',').map(origin => origin.trim()) } : undefined));
+app.use(express.json({ limit: '1mb' })); // Parse JSON bodies
 app.use(express.urlencoded({ extended: true })); // Parse URL-encoded bodies
 app.use(requestLogger); // Custom request logger
 
 // Swagger UI setup
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    marketData: Boolean(config.alphaVantageApiKey),
+    llmProvider: config.useAI ? config.llmProvider : 'none'
+  });
+});
+
 // Apply API routes with prefix
 app.use('/api', apiKeyValidator, routes);
 
-app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+app.use((req, res) => {
+  res.status(404).json({ error: 'Not Found' });
 });
 
 app.use(errorHandler);
 
-app.use((req, res) => {
-  res.status(404).json({ message: 'Not Found' });
-});
-
-app.listen(port, () => {
-  console.log(`Server running on port ${port}`);
-  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`Swagger documentation available at http://localhost:${port}/api-docs`);
-});
+// Only listen when started directly, so the app can be imported in tests
+if (require.main === module) {
+  app.listen(config.port, () => {
+    console.log(`Server running on port ${config.port}`);
+    console.log(`Environment: ${config.env}`);
+    console.log(`Market data: ${config.alphaVantageApiKey ? 'Alpha Vantage' : 'not configured (set ALPHA_VANTAGE_API_KEY)'}`);
+    console.log(`Portfolio decisions: ${config.useAI && config.llmProvider !== 'none' ? config.llmProvider : 'rule-based'}`);
+    console.log(`Swagger documentation available at http://localhost:${config.port}/api-docs`);
+  });
+}
 
 export default app;

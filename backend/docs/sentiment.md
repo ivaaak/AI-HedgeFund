@@ -3,7 +3,7 @@ SentimentService:
 Analyzes market sentiment by examining insider trading patterns and news sentiment
 Implements the same weighted approach to combine signals from different sources
 Calculates bullish/bearish signals and confidence levels
-Includes mock data methods for insider trades and company news that would be replaced with real API calls in production
+Reads news sentiment and insider transactions from the shared FinancialDataService (Alpha Vantage); either source may be unavailable without failing the analysis
 
 
 SentimentController:

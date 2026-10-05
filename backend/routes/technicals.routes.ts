@@ -1,6 +1,7 @@
 // technicals.routes.ts
 import { Router } from 'express';
 import { TechnicalAnalystController } from '../controllers/technicals.controller';
+import { asyncHandler } from '../middleware/middleware';
 
 const router = Router();
 const controller = new TechnicalAnalystController();
@@ -12,47 +13,24 @@ const controller = new TechnicalAnalystController();
  *     summary: Analyze technical indicators
  *     tags:
  *       - Technical Analysis
- *     description: Performs technical analysis on the specified tickers
+ *     description: Combines trend following, mean reversion, momentum, volatility and statistical arbitrage signals
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
- *             type: object
- *             required:
- *               - tickers
- *             properties:
- *               tickers:
- *                 type: array
- *                 items:
- *                   type: string
- *               indicators:
- *                 type: array
- *                 items:
- *                   type: string
- *                   enum: [macd, rsi, bollinger, sma, ema]
- *               timeframe:
- *                 type: string
- *                 enum: [daily, weekly, monthly]
- *                 default: daily
+ *             $ref: '#/components/schemas/AnalysisRequest'
  *     responses:
  *       200:
- *         description: Successfully analyzed technical indicators
+ *         description: Technical signal per ticker
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               properties:
- *                 results:
- *                   type: array
- *                   items:
- *                     type: object
+ *               $ref: '#/components/schemas/AnalysisResponse'
  *       400:
  *         description: Invalid input parameters
- *       500:
- *         description: Server error
  */
-router.post('/analyze', controller.analyzeTickers);
+router.post('/analyze', asyncHandler(controller.analyzeTickers));
 
 /**
  * @swagger
@@ -61,7 +39,7 @@ router.post('/analyze', controller.analyzeTickers);
  *     summary: Get historical price data
  *     tags:
  *       - Technical Analysis
- *     description: Retrieves historical price data for a specific ticker
+ *     description: Retrieves daily price data for a specific ticker, oldest first
  *     parameters:
  *       - in: path
  *         name: ticker
@@ -70,54 +48,25 @@ router.post('/analyze', controller.analyzeTickers);
  *           type: string
  *         description: Stock ticker symbol
  *       - in: query
- *         name: period
+ *         name: start_date
+ *         required: true
  *         schema:
  *           type: string
- *           enum: [1d, 5d, 1mo, 3mo, 6mo, 1y, 2y, 5y, max]
- *           default: 1mo
- *         description: Time period for historical data
+ *           format: date
  *       - in: query
- *         name: interval
+ *         name: end_date
+ *         required: true
  *         schema:
  *           type: string
- *           enum: [1m, 5m, 15m, 30m, 60m, 1d, 1wk, 1mo]
- *           default: 1d
- *         description: Data interval
+ *           format: date
  *     responses:
  *       200:
  *         description: Successfully retrieved price data
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 ticker:
- *                   type: string
- *                 prices:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       date:
- *                         type: string
- *                         format: date-time
- *                       open:
- *                         type: number
- *                       high:
- *                         type: number
- *                       low:
- *                         type: number
- *                       close:
- *                         type: number
- *                       volume:
- *                         type: number
  *       400:
  *         description: Invalid ticker or parameters
  *       404:
- *         description: Ticker not found
- *       500:
- *         description: Server error
+ *         description: No price data found
  */
-router.get('/prices/:ticker', controller.getPriceData);
+router.get('/prices/:ticker', asyncHandler(controller.getPriceData));
 
 export default router;

@@ -1,22 +1,11 @@
 import { Request, Response } from 'express';
+import { parseAnalysisRequest } from '../middleware/validation';
 import { FundamentalsService } from '../services/fundamentals.service';
-import { AgentState } from '../data/models';
 
 export class FundamentalsController {
-    private fundamentalsService: FundamentalsService;
+  constructor(private fundamentalsService: FundamentalsService = new FundamentalsService()) {}
 
-    constructor() {
-        this.fundamentalsService = new FundamentalsService();
-    }
-
-    public analyze = async (req: Request, res: Response): Promise<void> => {
-        try {
-            const state: AgentState = req.body;
-            const result = await this.fundamentalsService.analyzeFundamentals(state);
-            res.json(result);
-        } catch (error) {
-            console.error('Analysis Error:', error);
-            res.status(500).json({ error: 'Failed to analyze fundamentals' });
-        }
-    };
+  public analyze = async (req: Request, res: Response): Promise<void> => {
+    res.json(await this.fundamentalsService.analyzeFundamentals(parseAnalysisRequest(req.body)));
+  };
 }

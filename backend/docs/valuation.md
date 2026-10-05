@@ -3,7 +3,7 @@ ValuationService:
 Performs detailed valuation analysis using multiple methodologies (DCF and Owner Earnings) for multiple tickers
 Includes all the calculation methods from the original Python code
 Uses the same approach to determine bullish/bearish/neutral signals based on valuation gaps
-Implements mock data methods that would be replaced with actual API calls in production
+Uses annual statements and the market capitalization from the shared FinancialDataService (Alpha Vantage)
 
 
 ValuationController:

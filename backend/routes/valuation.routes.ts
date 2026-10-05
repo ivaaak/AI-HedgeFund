@@ -1,6 +1,7 @@
 // valuation.routes.ts
 import { Router } from 'express';
 import { ValuationController } from '../controllers/valuation.controller';
+import { asyncHandler } from '../middleware/middleware';
 
 const router = Router();
 const controller = new ValuationController();
@@ -12,55 +13,23 @@ const controller = new ValuationController();
  *     summary: Analyze stock valuation
  *     tags:
  *       - Valuation Analysis
- *     description: Performs fundamental valuation analysis on specified tickers
+ *     description: Compares a DCF and an owner earnings valuation with the market capitalization
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
- *             type: object
- *             required:
- *               - tickers
- *             properties:
- *               tickers:
- *                 type: array
- *                 items:
- *                   type: string
- *               metrics:
- *                 type: array
- *                 items:
- *                   type: string
- *                   enum: [pe, pb, ps, pcf, dividend, dcf]
- *               compareWith:
- *                 type: array
- *                 items:
- *                   type: string
+ *             $ref: '#/components/schemas/AnalysisRequest'
  *     responses:
  *       200:
- *         description: Successfully analyzed stock valuation
+ *         description: Valuation signal per ticker
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               properties:
- *                 results:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       ticker:
- *                         type: string
- *                       valuationMetrics:
- *                         type: object
- *                       intrinsicValue:
- *                         type: number
- *                       recommendation:
- *                         type: string
+ *               $ref: '#/components/schemas/AnalysisResponse'
  *       400:
  *         description: Invalid input parameters
- *       500:
- *         description: Server error
  */
-router.post('/analyze', controller.analyzeValuation);
+router.post('/analyze', asyncHandler(controller.analyzeValuation));
 
 export default router;

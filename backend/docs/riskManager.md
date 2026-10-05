@@ -4,7 +4,7 @@ Controls position sizing based on real-world risk factors for multiple tickers
 Calculates portfolio-level risk metrics including position limits and exposure
 Ensures proper risk distribution by enforcing a 20% maximum allocation per position
 Generates recommendations based on combined technical and fundamental signals
-Includes mock price data methods that would be replaced with real API calls in production
+Uses daily prices from the shared FinancialDataService (Alpha Vantage) and reports annualized volatility, max drawdown and a 1-10 risk score
 
 
 RiskManagerController:

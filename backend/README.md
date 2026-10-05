@@ -1,92 +1,98 @@
 # Financial Analysis Server
 
-A robust Express.js server application for financial analysis and portfolio management.
+An Express.js server for financial analysis and (paper) portfolio management.
 
 ## Features
 
-- Financial data retrieval and analysis
-- Fundamental analysis for stocks
-- Portfolio management with trade execution
-- OpenAI integration for advanced analysis
-- API security with key validation
-- Error handling and request logging
+- Market data from Alpha Vantage: prices, financial metrics, statements, news sentiment, insider transactions
+- Four analysts: fundamentals, technicals, sentiment and valuation
+- Risk management: position limits, volatility and drawdown
+- Portfolio decisions by an LLM (OpenAI or Claude), with a rule-based fallback
+- Paper trade execution and performance calculation
+- Response caching on disk, request throttling, API key validation, Swagger docs
 
 ## Project Structure
 
 ```
-financial-analysis-server/
-├── src/
-│   ├── config/             # Application configuration
-│   ├── controllers/        # Route controllers
-│   ├── data/               # Data models and cache
-│   ├── middleware/         # Express middleware
-│   ├── routes/             # API routes
-│   ├── services/           # Business logic
-│   └── server.ts           # Express application
-├── .env.example            # Environment variables example
-├── package.json            # Project dependencies
-├── tsconfig.json           # TypeScript configuration
-└── README.md               # Project documentation
+backend/
+├── controllers/        # Route controllers
+├── data/               # Data models and cache
+├── docs/               # Notes per module
+├── middleware/         # Error handling, API key check, request validation
+├── routes/             # API routes with OpenAPI annotations
+├── services/           # Business logic
+├── tests/              # Unit tests (node:test)
+├── config.ts           # Configuration from environment variables
+├── server.ts           # Express application
+└── .env.example        # Environment variables example
 ```
 
 ## Getting Started
 
-### Prerequisites
+Requires Node.js 20 or later.
 
-- Node.js 16.x or later
-- npm or yarn
+1. Install dependencies: `npm install`
+2. Copy `.env.example` to `.env` and set at least `ALPHA_VANTAGE_API_KEY`
+3. Start the server: `npm start` (runs `ts-node server.ts`)
 
-### Installation
+Other scripts:
 
-1. Clone the repository
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Copy `.env.example` to `.env` and update the values
-4. Build the project:
-   ```bash
-   npm run build
-   ```
-5. Start the server:
-   ```bash
-   npm start
-   ```
+- `npm test` - type-check and run the unit tests
+- `npm run build` / `npm run start:prod` - compile to `dist/` and run the compiled server
 
-### Development
-
-Run the development server with hot-reloading:
-```bash
-npm run dev
-```
+Swagger UI is served at `/api-docs`.
 
 ## API Endpoints
 
-### Financial Data
+Analysis endpoints take `{ "tickers": ["AAPL"], "start_date": "YYYY-MM-DD", "end_date": "YYYY-MM-DD" }`
+(dates are optional) and answer with `{ "results": { ticker: ... }, "errors": { ticker: message } }`,
+so one ticker failing does not fail the request.
 
-- `GET /api/financial-data/prices` - Get price data for a ticker
-- `GET /api/financial-data/metrics` - Get financial metrics for a ticker
+| Endpoint | Description |
+|---|---|
+| `GET /health` | Health check |
+| `GET /api/financial-data/prices` | Daily prices (`ticker`, `startDate`, `endDate`) |
+| `GET /api/financial-data/metrics` | Financial metrics (`ticker`, `endDate`, `period`, `limit`) |
+| `GET /api/financial-data/line-items` | Statement line items (`ticker`, `lineItems`, ...) |
+| `GET /api/financial-data/market-cap` | Market capitalization (`ticker`) |
+| `POST /api/fundamentals/analyze` | Fundamental analysis |
+| `POST /api/technical/analyze` | Technical analysis |
+| `GET /api/technical/prices/:ticker` | Daily prices (`start_date`, `end_date`) |
+| `POST /api/sentiment/analyze` | News and insider sentiment |
+| `POST /api/valuation/analyze` | DCF and owner earnings valuation |
+| `POST /api/risk/analyze` | Position limits and price risk (takes a `portfolio`) |
+| `POST /api/risk/recommendations` | Position-sized recommendations from signals |
+| `POST /api/portfolio/manage` | Trading decisions from signals and risk limits |
+| `POST /api/hedge-fund/run` | Full cycle: analysts, risk, decisions, paper trades |
 
-### Fundamental Analysis
+The server is stateless. `POST /api/hedge-fund/run` returns the updated portfolio; send it back with
+the next request. A portfolio looks like:
 
-- `POST /api/fundamentals/analyze` - Analyze fundamental data for tickers
+```json
+{
+  "cash": 100000,
+  "positions": { "AAPL": { "shares": 10, "avg_price": 200, "current_price": 210 } },
+  "history": [],
+  "initial_value": 100000
+}
+```
 
-### Portfolio Management
-
-- `POST /api/portfolio/manage` - Manage portfolio based on analysis
+Ratios, margins and growth rates in the metrics are fractions (`0.15` = 15%).
 
 ## Configuration
 
-The application can be configured through environment variables:
+See `.env.example` for all variables. The most important ones:
 
 - `PORT` - Server port (default: 3000)
-- `NODE_ENV` - Environment (development, production)
-- `API_KEY_REQUIRED` - Whether API key validation is required
-- `API_KEY` - API key for authentication
-- `FINANCIAL_API_KEY` - API key for financial data services
-- `OPENAI_API_KEY` - API key for OpenAI integration
-- `USE_AI` - Whether to use AI for analysis
+- `ALPHA_VANTAGE_API_KEY` - Market data key. The free tier allows 25 requests per day and one
+  full analysis needs 7 requests per ticker, so responses are cached in `CACHE_DIR` (default `.cache`)
+- `LLM_PROVIDER`, `OPENAI_API_KEY` / `ANTHROPIC_API_KEY`, `USE_AI` - Who makes the portfolio decisions.
+  Without a working provider the weighted rule-based decision is used
+- `API_KEY_REQUIRED`, `API_KEY` - Require an `X-API-KEY` header on `/api`
 
-## License
+## Limitations
 
-This project is proprietary and confidential.
+- On the free Alpha Vantage tier only the latest 100 trading days of prices are available, so the
+  6 month momentum is left out of the technical analysis and analyses are always as of "now"
+- Fundamentals come from the current company overview and annual statements; `end_date` only limits
+  which statements, news and insider transactions are used

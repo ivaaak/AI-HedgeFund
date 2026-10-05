@@ -1,15 +1,6 @@
-// Cache
-export interface CacheData {
-    [key: string]: any;
-}
-
-export interface CacheItem {
-    time?: string;
-    report_period?: string;
-    filing_date?: string;
-    date?: string;
-    [key: string]: any;
-}
+// Shared signal vocabulary
+export type SignalDirection = 'bullish' | 'bearish' | 'neutral';
+export type TradeAction = 'buy' | 'sell' | 'hold';
 
 // Price Models
 export interface Price {
@@ -18,15 +9,11 @@ export interface Price {
     high: number;
     low: number;
     volume: number;
-    time: string;
-}
-
-export interface PriceResponse {
-    ticker: string;
-    prices: Price[];
+    time: string; // YYYY-MM-DD
 }
 
 // Financial Metrics Models
+// Ratios, margins and growth rates are fractions (0.15 = 15%)
 export interface FinancialMetrics {
     ticker: string;
     calendar_date: string;
@@ -74,57 +61,36 @@ export interface FinancialMetrics {
     free_cash_flow_per_share: number | null;
 }
 
-export interface FinancialMetricsResponse {
-    financial_metrics: FinancialMetrics[];
-}
-
-// Line Item Models
+// Line Item Models (one row per reporting period, merged from the three statements)
 export interface LineItem {
     ticker: string;
     report_period: string;
     period: string;
     currency: string;
-    [key: string]: any; // Allow additional fields dynamically
-}
-
-export interface LineItemResponse {
-    search_results: LineItem[];
+    [key: string]: string | number | null; // Requested line items
 }
 
 // Insider Trade Models
 export interface InsiderTrade {
     ticker: string;
-    issuer: string | null;
     name: string | null;
     title: string | null;
-    is_board_director: boolean | null;
-    transaction_date: string | null;
-    transaction_shares: number | null;
+    transaction_date: string;
+    // Positive for acquisitions, negative for disposals
+    transaction_shares: number;
     transaction_price_per_share: number | null;
-    transaction_value: number | null;
-    shares_owned_before_transaction: number | null;
-    shares_owned_after_transaction: number | null;
     security_title: string | null;
-    filing_date: string;
-}
-
-export interface InsiderTradeResponse {
-    insider_trades: InsiderTrade[];
 }
 
 // Company News Models
 export interface CompanyNews {
     ticker: string;
     title: string;
-    author: string;
     source: string;
-    date: string;
+    date: string; // YYYY-MM-DD
     url: string;
-    sentiment: string | null;
-}
-
-export interface CompanyNewsResponse {
-    news: CompanyNews[];
+    sentiment: 'positive' | 'negative' | 'neutral';
+    sentiment_score: number | null;
 }
 
 /**
@@ -142,165 +108,78 @@ export interface Position {
 export interface TradeRecord {
     date: string;
     ticker: string;
-    action: string;
+    action: 'buy' | 'sell';
     quantity: number;
     price: number;
     total: number;
 }
 
 /**
- * Unified interface for portfolio
+ * Unified interface for the (paper trading) portfolio
  */
 export interface Portfolio {
     cash: number;
     positions: Record<string, Position>;
     history: TradeRecord[];
+    // Value the portfolio started with, used to compute the total return
+    initial_value: number;
 }
 
-// Analyst Models
-export interface AnalystSignal {
-    signal: string | null;
-    confidence: number | null | undefined;
-    reasoning: Record<string, any> | string | null;
-    max_position_size: number | null;
-}
-
-export interface TickerAnalysis {
-    ticker: string;
-    analyst_signals: { [agent: string]: AnalystSignal };
-}
-
-// Signal used for each fundamental component analysis
+// Reasoning entry used for each component of an analysis
 export interface Signal {
-    signal: string;
+    signal: SignalDirection;
     details: string;
 }
 
-// Fundamental Analysis result for a ticker
-export interface FundamentalAnalysis {
-    signal?: string;
-    confidence?: number;
-    reasoning?: Record<string, Signal>;
-    // Additional properties for risk management data
-    current_price?: number;
-    portfolio_value?: number;
-    position_limit?: number;
-    current_position_value?: number;
-    remaining_position_limit?: number;
-    // Allow additional fields for flexibility
-    [key: string]: any;
+// Result of one analyst for one ticker
+export interface AnalystSignal<TReasoning = unknown> {
+    signal: SignalDirection;
+    confidence: number; // 0 to 100
+    reasoning: TReasoning;
 }
 
-// Message structure for agent communication
-export interface AnalysisMessage {
-    content: string;
-    name: string;
+// Every analyst endpoint answers with this shape: tickers that could not be
+// analysed are reported in `errors` instead of being silently dropped
+export interface AnalysisResponse<TResult> {
+    results: Record<string, TResult>;
+    errors: Record<string, string>;
 }
 
-export interface BaseMessage {
-    content: string;
-    name?: string;
-}
-
-/**
- * The data portion of the AgentState
- * This is extracted to allow for using Partial<AgentStateData> in updates
- */
-export interface AgentStateData {
+export interface AnalysisRequest {
     tickers: string[];
     start_date: string;
     end_date: string;
-    portfolio: Portfolio;
-    analyst_signals: {
-        [agent: string]: {
-            [ticker: string]: FundamentalAnalysis;
-        };
-    };
-    [key: string]: any; // Allow additional fields
 }
 
-/**
- * Agent State structure
- */
-export interface AgentState {
-    messages: AnalysisMessage[];
-    data: AgentStateData;
-    metadata: {
-        show_reasoning?: boolean;
-        [key: string]: any; // Allow additional fields
+// Risk management
+export interface RiskAnalysisResult {
+    remaining_position_limit: number;
+    current_price: number;
+    risk_score: number; // 1 (calm) to 10 (very volatile)
+    reasoning: {
+        portfolio_value: number;
+        current_position: number;
+        position_limit: number;
+        remaining_limit: number;
+        available_cash: number;
+        annualized_volatility: number | null;
+        max_drawdown: number | null;
     };
 }
 
-// Type Guards
-export const isPriceResponse = (obj: any): obj is PriceResponse => {
-    return (
-        typeof obj === 'object' &&
-        obj !== null &&
-        typeof obj.ticker === 'string' &&
-        Array.isArray(obj.prices) &&
-        obj.prices.every((price: any) =>
-            typeof price === 'object' &&
-            typeof price.open === 'number' &&
-            typeof price.close === 'number' &&
-            typeof price.high === 'number' &&
-            typeof price.low === 'number' &&
-            typeof price.volume === 'number' &&
-            typeof price.time === 'string'
-        )
-    );
-};
-
-export const isFinancialMetrics = (obj: any): obj is FinancialMetrics => {
-    return (
-        typeof obj === 'object' &&
-        obj !== null &&
-        typeof obj.ticker === 'string' &&
-        typeof obj.report_period === 'string' &&
-        typeof obj.period === 'string' &&
-        typeof obj.currency === 'string'
-    );
-};
-
-// Optional: Model Classes with Validation
-export class PriceModel {
-    public ticker: string;
-    public prices: Price[];
-
-    constructor(data: PriceResponse) {
-        if (!isPriceResponse(data)) {
-            throw new Error('Invalid price response data');
-        }
-        this.ticker = data.ticker;
-        this.prices = data.prices;
-    }
-
-    static fromJSON(json: string): PriceModel {
-        try {
-            const data = JSON.parse(json);
-            return new PriceModel(data);
-        } catch (error) {
-            throw new Error('Failed to parse price data');
-        }
-    }
+// Portfolio management
+export interface PortfolioDecision {
+    action: TradeAction;
+    quantity: number;
+    confidence: number; // 0 to 100
+    reasoning: string;
 }
 
-export class FinancialMetricsModel {
-    constructor(private data: FinancialMetrics) {
-        if (!isFinancialMetrics(data)) {
-            throw new Error('Invalid financial metrics data');
-        }
-    }
+export const DEFAULT_STARTING_CASH = 100000;
 
-    static fromJSON(json: string): FinancialMetricsModel {
-        try {
-            const data = JSON.parse(json);
-            return new FinancialMetricsModel(data);
-        } catch (error) {
-            throw new Error('Failed to parse financial metrics data');
-        }
-    }
-
-    public toJSON(): FinancialMetrics {
-        return { ...this.data };
-    }
-}
+export const createPortfolio = (cash: number = DEFAULT_STARTING_CASH): Portfolio => ({
+    cash,
+    positions: {},
+    history: [],
+    initial_value: cash
+});
