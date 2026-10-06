@@ -1,278 +1,206 @@
-import { OpenAIService } from './openai.service';
+import config from '../config';
+import { AnalysisRequest, AnalysisResponse, AnalystSignal, Portfolio, RiskAnalysisResult, SignalDirection, TradeAction } from '../data/models';
+import { HttpError } from '../middleware/middleware';
+import { daysBefore } from '../middleware/validation';
+import { analyzeEach, clamp } from './analysis.util';
+import { FinancialDataService, financialDataService } from './financialData.service';
+import { annualizedVolatility, maxDrawdown } from './indicators';
+import { markToMarket, portfolioValue, equityValue } from './portfolio';
 
-// Type definitions
-export interface Portfolio {
-  cash: number;
-  cost_basis: Record<string, number>;
-}
-
-export interface RiskAnalysisResult {
-  remaining_position_limit: number;
-  current_price: number;
-  reasoning: {
-    portfolio_value: number;
-    current_position: number;
-    position_limit: number;
-    remaining_limit: number;
-    available_cash: number;
-  };
-}
-
-export interface RiskManagementRequest {
-  tickers: string[];
-  start_date: string;
-  end_date: string;
+export interface RiskManagementRequest extends AnalysisRequest {
   portfolio: Portfolio;
 }
 
-export interface PriceData {
-  date: string;
-  open: number;
-  high: number;
-  close: number;
-  low: number;
-  volume: number;
+export interface Recommendation {
+  technical_signal: SignalDirection;
+  fundamental_signal: SignalDirection;
+  combined_signal: SignalDirection;
+  confidence: number;
+  action: TradeAction;
+  shares: number;
+  estimated_value: number;
+  current_position_shares: number;
+  current_price: number;
 }
 
+export interface RecommendationsResult {
+  recommendations: Record<string, Recommendation>;
+  portfolio_summary: {
+    total_value: number;
+    cash: number;
+    invested: number;
+  };
+}
+
+type SignalInput = Pick<AnalystSignal, 'signal' | 'confidence'>;
+
+// Volatility is measured over at least this many days
+const MIN_LOOKBACK_DAYS = 90;
+// Annualized volatility that maps to the maximum risk score of 10
+const MAX_SCORE_VOLATILITY = 0.6;
+
 export class RiskManagerService {
-  private openAIService: OpenAIService;
-  
-  constructor(apiKey?: string) {
-    this.openAIService = new OpenAIService(apiKey);
-  }
-  
+  constructor(private financialData: FinancialDataService = financialDataService) {}
+
   /**
-   * Analyze risk management for multiple tickers
+   * Analyze risk management for multiple tickers: position limits and price risk
    */
-  public async analyzeRisk(request: RiskManagementRequest): Promise<Record<string, RiskAnalysisResult>> {
-    try {
-      const { tickers, start_date, end_date, portfolio } = request;
-      
-      if (!tickers || !Array.isArray(tickers) || tickers.length === 0) {
-        throw new Error('Invalid tickers provided');
+  public async analyzeRisk(request: RiskManagementRequest): Promise<AnalysisResponse<RiskAnalysisResult>> {
+    const { tickers, start_date, end_date, portfolio } = request;
+
+    const lookbackStart = daysBefore(end_date, MIN_LOOKBACK_DAYS);
+    const startDate = start_date < lookbackStart ? start_date : lookbackStart;
+
+    // Fetch prices first: the portfolio has to be valued before limits can be set
+    const priceData = await analyzeEach('risk_management_agent', tickers, async ticker => {
+      const prices = await this.financialData.getPrices(ticker, startDate, end_date);
+      if (prices.length === 0) {
+        throw new HttpError(404, `No price data found for ${ticker}`);
       }
-      
-      if (!start_date || !end_date) {
-        throw new Error('Start date and end date are required');
-      }
-      
-      if (!portfolio) {
-        throw new Error('Portfolio information is required');
-      }
-      
-      // Initialize risk analysis for each ticker
-      const riskAnalysis: Record<string, RiskAnalysisResult> = {};
-      const currentPrices: Record<string, number> = {}; // Store prices to avoid redundant API calls
-      
-      for (const ticker of tickers) {
-        // Get historical price data
-        const prices = await this.getPriceData(ticker, start_date, end_date);
-        
-        if (!prices || prices.length === 0) {
-          console.warn(`No price data found for ${ticker}`);
-          continue;
-        }
-        
-        // Calculate portfolio value
-        const currentPrice = prices[prices.length - 1].close;
-        currentPrices[ticker] = currentPrice; // Store the current price
-        
-        // Calculate current position value for this ticker
-        const currentPositionValue = portfolio.cost_basis[ticker] || 0;
-        
-        // Calculate total portfolio value using stored prices
-        const totalPortfolioValue = portfolio.cash + 
-          Object.entries(portfolio.cost_basis).reduce((sum, [t, value]) => sum + value, 0);
-        
-        // Base limit is 20% of portfolio for any single position
-        const positionLimit = totalPortfolioValue * 0.20;
-        
-        // For existing positions, subtract current position value from limit
-        const remainingPositionLimit = positionLimit - currentPositionValue;
-        
+      return prices.map(p => p.close);
+    });
+
+    const currentPrices: Record<string, number> = {};
+    for (const [ticker, closes] of Object.entries(priceData.results)) {
+      currentPrices[ticker] = closes[closes.length - 1];
+    }
+
+    const marked = markToMarket(portfolio, currentPrices);
+    const totalPortfolioValue = portfolioValue(marked);
+
+    // Limit for any single position
+    const positionLimit = totalPortfolioValue * config.maxPositionPct;
+
+    const response: AnalysisResponse<RiskAnalysisResult> = { results: {}, errors: priceData.errors };
+
+    for (const [ticker, closes] of Object.entries(priceData.results)) {
+      const currentPrice = currentPrices[ticker];
+      const currentPositionValue = (marked.positions[ticker]?.shares || 0) * currentPrice;
+
+      // For existing positions, subtract current position value from limit
+      const remainingPositionLimit = Math.max(0, positionLimit - currentPositionValue);
+
+      const volatility = annualizedVolatility(closes);
+
+      response.results[ticker] = {
         // Ensure we don't exceed available cash
-        const maxPositionSize = Math.min(remainingPositionLimit, portfolio.cash);
-        
-        riskAnalysis[ticker] = {
-          remaining_position_limit: maxPositionSize,
-          current_price: currentPrice,
-          reasoning: {
-            portfolio_value: totalPortfolioValue,
-            current_position: currentPositionValue,
-            position_limit: positionLimit,
-            remaining_limit: remainingPositionLimit,
-            available_cash: portfolio.cash,
-          },
-        };
-      }
-      
-      return riskAnalysis;
-    } catch (error) {
-      console.error('Error in risk analysis:', error);
-      throw error;
-    }
-  }
-  
-  /**
-   * Get price data for a specific ticker
-   */
-  public async getPriceData(ticker: string, startDate: string, endDate: string): Promise<PriceData[]> {
-    try {
-      // In a real implementation, this would call an external API or database
-      // This could be replaced with a call to Alpha Vantage, Yahoo Finance, etc.
-      
-      // For demonstration, returning mock data
-      const mockData: PriceData[] = [];
-      const startDateObj = new Date(startDate);
-      const endDateObj = new Date(endDate);
-      
-      let currentDate = new Date(startDateObj);
-      let basePrice = 100 + Math.random() * 50;
-      
-      while (currentDate <= endDateObj) {
-        // Skip weekends
-        if (currentDate.getDay() !== 0 && currentDate.getDay() !== 6) {
-          const dailyVolatility = 0.02;
-          const change = (Math.random() - 0.5) * dailyVolatility * basePrice;
-          
-          const open = basePrice;
-          const close = basePrice + change;
-          const high = Math.max(open, close) + Math.random() * Math.abs(change);
-          const low = Math.min(open, close) - Math.random() * Math.abs(change);
-          const volume = Math.floor(100000 + Math.random() * 900000);
-          
-          mockData.push({
-            date: currentDate.toISOString().split('T')[0],
-            open,
-            high,
-            close,
-            low,
-            volume
-          });
-          
-          basePrice = close;
+        remaining_position_limit: Math.min(remainingPositionLimit, marked.cash),
+        current_price: currentPrice,
+        risk_score: isNaN(volatility) ? 5 : Number(clamp(volatility / MAX_SCORE_VOLATILITY * 10, 1, 10).toFixed(1)),
+        reasoning: {
+          portfolio_value: totalPortfolioValue,
+          current_position: currentPositionValue,
+          position_limit: positionLimit,
+          remaining_limit: remainingPositionLimit,
+          available_cash: marked.cash,
+          annualized_volatility: isNaN(volatility) ? null : volatility,
+          max_drawdown: closes.length > 1 ? maxDrawdown(closes) : null
         }
-        
-        // Move to next day
-        currentDate.setDate(currentDate.getDate() + 1);
-      }
-      
-      return mockData;
-    } catch (error) {
-      console.error(`Error fetching price data for ${ticker}:`, error);
-      throw error;
+      };
     }
+
+    return response;
   }
-  
+
   /**
-   * Calculate position size based on risk parameters
+   * Calculate position size (in shares) based on risk parameters
    */
   public calculatePositionSize(
-    signal: string, 
-    confidence: number, 
-    currentPrice: number, 
+    signal: SignalDirection,
+    confidence: number,
+    currentPrice: number,
     remainingPositionLimit: number
   ): number {
     // Skip bearish signals for position sizing
-    if (signal === 'bearish') {
+    if (signal === 'bearish' || currentPrice <= 0) {
       return 0;
     }
-    
-    // For bullish signals, scale based on confidence
+
+    // For bullish signals, scale from 0% to 100% of remaining position limit based on confidence
     if (signal === 'bullish') {
-      // Scale from 0% to 100% of remaining position limit based on confidence
-      const scaledLimit = remainingPositionLimit * (confidence / 100);
-      return scaledLimit / currentPrice; // Convert to number of shares
+      return (remainingPositionLimit * (confidence / 100)) / currentPrice;
     }
-    
+
     // For neutral signals, use a smaller position size (25% of bullish)
     return (remainingPositionLimit * 0.25) / currentPrice;
   }
-  
+
   /**
    * Generate portfolio recommendations based on signals and risk analysis
    */
-  public async generateRecommendations(
-    technicalSignals: Record<string, any>,
-    fundamentalSignals: Record<string, any>,
+  public generateRecommendations(
+    technicalSignals: Record<string, SignalInput>,
+    fundamentalSignals: Record<string, SignalInput>,
     riskAnalysis: Record<string, RiskAnalysisResult>,
     portfolio: Portfolio
-  ): Promise<any> {
-    try {
-      // Combine signals from various sources
-      const combinedSignals: Record<string, any> = {};
-      
-      for (const ticker of Object.keys(riskAnalysis)) {
-        const technical = technicalSignals[ticker] || { signal: 'neutral', confidence: 50 };
-        const fundamental = fundamentalSignals[ticker] || { signal: 'neutral', confidence: 50 };
-        
-        // Simple weighted combination of signals
-        const signalValues = { bullish: 1, neutral: 0, bearish: -1 };
-        const technicalValue = signalValues[technical.signal] * (technical.confidence / 100);
-        const fundamentalValue = signalValues[fundamental.signal] * (fundamental.confidence / 100);
-        
-        // 60% weight to technical, 40% to fundamental
-        const combinedValue = 0.6 * technicalValue + 0.4 * fundamentalValue;
-        
-        let combinedSignal = 'neutral';
-        if (combinedValue > 0.2) {
-          combinedSignal = 'bullish';
-        } else if (combinedValue < -0.2) {
-          combinedSignal = 'bearish';
-        }
-        
-        const combinedConfidence = Math.round(Math.abs(combinedValue) * 100);
-        
-        // Calculate position size based on risk parameters
-        const { current_price, remaining_position_limit } = riskAnalysis[ticker];
-        const recommendedShares = this.calculatePositionSize(
-          combinedSignal,
-          combinedConfidence,
-          current_price,
-          remaining_position_limit
-        );
-        
-        // Current position in shares
-        const currentPositionValue = portfolio.cost_basis[ticker] || 0;
-        const currentShares = currentPositionValue / current_price;
-        
-        // Generate action recommendation
-        let action = 'hold';
-        let actionShares = 0;
-        
-        if (combinedSignal === 'bullish' && recommendedShares > currentShares) {
-          action = 'buy';
-          actionShares = Math.floor(recommendedShares - currentShares);
-        } else if (combinedSignal === 'bearish') {
-          action = 'sell';
-          actionShares = Math.floor(currentShares);
-        }
-        
-        combinedSignals[ticker] = {
-          technical_signal: technical.signal,
-          fundamental_signal: fundamental.signal,
-          combined_signal: combinedSignal,
-          confidence: combinedConfidence,
-          action,
-          shares: actionShares,
-          estimated_value: actionShares * current_price,
-          current_position_shares: Math.floor(currentShares),
-          current_price,
-        };
+  ): RecommendationsResult {
+    const signalValues: Record<SignalDirection, number> = { bullish: 1, neutral: 0, bearish: -1 };
+    const neutral: SignalInput = { signal: 'neutral', confidence: 50 };
+    const recommendations: Record<string, Recommendation> = {};
+
+    for (const ticker of Object.keys(riskAnalysis)) {
+      const technical = technicalSignals[ticker] || neutral;
+      const fundamental = fundamentalSignals[ticker] || neutral;
+
+      // Simple weighted combination of signals: 60% technical, 40% fundamental
+      const technicalValue = (signalValues[technical.signal] ?? 0) * (technical.confidence / 100);
+      const fundamentalValue = (signalValues[fundamental.signal] ?? 0) * (fundamental.confidence / 100);
+      const combinedValue = 0.6 * technicalValue + 0.4 * fundamentalValue;
+
+      let combinedSignal: SignalDirection = 'neutral';
+      if (combinedValue > 0.2) {
+        combinedSignal = 'bullish';
+      } else if (combinedValue < -0.2) {
+        combinedSignal = 'bearish';
       }
-      
-      return {
-        recommendations: combinedSignals,
-        portfolio_summary: {
-          total_value: portfolio.cash + 
-            Object.entries(portfolio.cost_basis).reduce((sum, [t, value]) => sum + value, 0),
-          cash: portfolio.cash,
-          invested: Object.entries(portfolio.cost_basis).reduce((sum, [t, value]) => sum + value, 0),
-        }
+
+      const combinedConfidence = Math.round(Math.abs(combinedValue) * 100);
+
+      // Calculate position size based on risk parameters
+      const { current_price, remaining_position_limit } = riskAnalysis[ticker];
+      const additionalShares = Math.floor(this.calculatePositionSize(
+        combinedSignal,
+        combinedConfidence,
+        current_price,
+        remaining_position_limit
+      ));
+
+      const currentShares = portfolio.positions[ticker]?.shares || 0;
+
+      // Generate action recommendation
+      let action: TradeAction = 'hold';
+      let actionShares = 0;
+
+      if (combinedSignal === 'bullish' && additionalShares > 0) {
+        action = 'buy';
+        actionShares = additionalShares;
+      } else if (combinedSignal === 'bearish' && currentShares > 0) {
+        action = 'sell';
+        actionShares = currentShares;
+      }
+
+      recommendations[ticker] = {
+        technical_signal: technical.signal,
+        fundamental_signal: fundamental.signal,
+        combined_signal: combinedSignal,
+        confidence: combinedConfidence,
+        action,
+        shares: actionShares,
+        estimated_value: actionShares * current_price,
+        current_position_shares: currentShares,
+        current_price
       };
-    } catch (error) {
-      console.error('Error generating recommendations:', error);
-      throw error;
     }
+
+    const invested = equityValue(portfolio);
+
+    return {
+      recommendations,
+      portfolio_summary: {
+        total_value: portfolio.cash + invested,
+        cash: portfolio.cash,
+        invested
+      }
+    };
   }
 }

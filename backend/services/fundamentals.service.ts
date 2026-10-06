@@ -1,116 +1,58 @@
-import { ProgressService } from './progress.service';
-import { ApiService } from './api.service';
-import { AnalysisMessage, FundamentalAnalysis, Signal, FinancialMetrics, AgentState } from '../data/models';
+import { AnalysisRequest, AnalysisResponse, AnalystSignal, FinancialMetrics, Signal, SignalDirection } from '../data/models';
+import { HttpError } from '../middleware/middleware';
+import { analyzeEach } from './analysis.util';
+import { FinancialDataService, financialDataService } from './financialData.service';
 
-export interface GetFinancialMetricsParams {
-  ticker: string;
-  endDate: string;
-  period: 'ttm' | 'quarterly' | 'annual';
-  limit: number;
-}
+export type FundamentalAnalysis = AnalystSignal<Record<string, Signal>>;
+
+type Check = [value: number | null, passes: (value: number) => boolean];
 
 export class FundamentalsService {
-  private progressService: ProgressService;
-  private apiService: ApiService;
-
-  constructor() {
-    this.progressService = new ProgressService();
-    this.apiService = new ApiService();
-  }
+  constructor(private financialData: FinancialDataService = financialDataService) {}
 
   /**
    * Analyzes fundamental data and generates trading signals for multiple tickers.
    */
-  public async analyzeFundamentals(state: AgentState): Promise<{
-    messages: AnalysisMessage[];
-    data: AgentState['data'];
-  }> {
-    const { data } = state;
-    const endDate = data.end_date;
-    const tickers = data.tickers;
+  public async analyzeFundamentals(request: AnalysisRequest): Promise<AnalysisResponse<FundamentalAnalysis>> {
+    return analyzeEach('fundamentals_agent', request.tickers, async ticker => {
+      const financialMetrics = await this.financialData.getFinancialMetrics(ticker, request.end_date, 'ttm', 2);
 
-    // Initialize fundamental analysis for each ticker
-    const fundamentalAnalysis: { [key: string]: FundamentalAnalysis } = {};
-
-    for (const ticker of tickers) {
-      this.progressService.updateStatus('fundamentals_agent', ticker, 'Fetching financial metrics');
-
-      try {
-        // Get the financial metrics
-        const financialMetrics = await this.apiService.getFinancialMetrics({
-          ticker: ticker,
-          endDate: endDate,
-          period: 'ttm',
-          limit: 10
-        });
-
-        if (!financialMetrics || !financialMetrics.length) {
-          this.progressService.updateStatus('fundamentals_agent', ticker, 'Failed: No financial metrics found');
-          continue;
-        }
-
-        // Pull the most recent financial metrics
-        const metrics = financialMetrics[0];
-
-        // Initialize signals list for different fundamental aspects
-        const signals: string[] = [];
-        const reasoning: Record<string, Signal> = {};
-
-        // 1. Profitability Analysis
-        this.progressService.updateStatus('fundamentals_agent', ticker, 'Analyzing profitability');
-        const profitabilitySignal = this.analyzeProfitability(metrics);
-        signals.push(profitabilitySignal.signal);
-        reasoning['profitability_signal'] = profitabilitySignal;
-
-        // 2. Growth Analysis
-        this.progressService.updateStatus('fundamentals_agent', ticker, 'Analyzing growth');
-        const growthSignal = this.analyzeGrowth(metrics);
-        signals.push(growthSignal.signal);
-        reasoning['growth_signal'] = growthSignal;
-
-        // 3. Financial Health
-        this.progressService.updateStatus('fundamentals_agent', ticker, 'Analyzing financial health');
-        const healthSignal = this.analyzeFinancialHealth(metrics);
-        signals.push(healthSignal.signal);
-        reasoning['financial_health_signal'] = healthSignal;
-
-        // 4. Price to X ratios
-        this.progressService.updateStatus('fundamentals_agent', ticker, 'Analyzing valuation ratios');
-        const priceRatiosSignal = this.analyzePriceRatios(metrics);
-        signals.push(priceRatiosSignal.signal);
-        reasoning['price_ratios_signal'] = priceRatiosSignal;
-
-        // Determine overall signal
-        this.progressService.updateStatus('fundamentals_agent', ticker, 'Calculating final signal');
-        const { signal, confidence } = this.calculateOverallSignal(signals);
-
-        fundamentalAnalysis[ticker] = {
-          signal,
-          confidence,
-          reasoning
-        };
-
-        this.progressService.updateStatus('fundamentals_agent', ticker, 'Done');
-      } catch (error) {
-        this.progressService.updateStatus('fundamentals_agent', ticker, `Error: ${(error as Error).message}`);
-        console.error(`Error analyzing ${ticker}:`, error);
+      if (!financialMetrics.length) {
+        throw new HttpError(404, `No financial metrics found for ${ticker}`);
       }
-    }
 
-    // Create the fundamental analysis message
-    const message: AnalysisMessage = {
-      content: JSON.stringify(fundamentalAnalysis),
-      name: 'fundamentals_agent'
+      // Pull the most recent financial metrics
+      return this.analyzeMetrics(financialMetrics[0]);
+    });
+  }
+
+  /**
+   * Rule-based fundamental analysis of one set of metrics
+   */
+  public analyzeMetrics(metrics: FinancialMetrics): FundamentalAnalysis {
+    const reasoning: Record<string, Signal> = {
+      profitability_signal: this.analyzeProfitability(metrics),
+      growth_signal: this.analyzeGrowth(metrics),
+      financial_health_signal: this.analyzeFinancialHealth(metrics),
+      price_ratios_signal: this.analyzePriceRatios(metrics)
     };
 
-    // Add the signal to the analyst_signals list
-    data.analyst_signals = data.analyst_signals || {};
-    data.analyst_signals.fundamentals_agent = fundamentalAnalysis;
+    const { signal, confidence } = this.calculateOverallSignal(Object.values(reasoning).map(r => r.signal));
 
-    return {
-      messages: [message],
-      data
-    };
+    return { signal, confidence, reasoning };
+  }
+
+  /**
+   * Scores a group of checks. Metrics that are not available are left out, and a
+   * group without any data is neutral rather than bearish.
+   */
+  private scoreChecks(checks: Check[]): SignalDirection {
+    const available = checks.filter((check): check is [number, (value: number) => boolean] => check[0] !== null);
+    if (available.length === 0) return 'neutral';
+
+    const passed = available.filter(([value, passes]) => passes(value)).length;
+    if (passed === 0) return 'bearish';
+    return passed / available.length >= 2 / 3 ? 'bullish' : 'neutral';
   }
 
   /**
@@ -121,17 +63,12 @@ export class FundamentalsService {
     const netMargin = metrics.net_margin;
     const operatingMargin = metrics.operating_margin;
 
-    const thresholds: [number | null, number][] = [
-      [returnOnEquity, 0.15],  // Strong ROE above 15%
-      [netMargin, 0.20],       // Healthy profit margins
-      [operatingMargin, 0.15], // Strong operating efficiency
-    ];
-
-    const profitabilityScore = thresholds.reduce((score, [metric, threshold]) => 
-      score + (metric !== null && metric > threshold ? 1 : 0), 0);
-
     return {
-      signal: profitabilityScore >= 2 ? 'bullish' : profitabilityScore === 0 ? 'bearish' : 'neutral',
+      signal: this.scoreChecks([
+        [returnOnEquity, v => v > 0.15],  // Strong ROE above 15%
+        [netMargin, v => v > 0.20],       // Healthy profit margins
+        [operatingMargin, v => v > 0.15]  // Strong operating efficiency
+      ]),
       details: `ROE: ${this.formatPercentage(returnOnEquity)}, Net Margin: ${this.formatPercentage(netMargin)}, Op Margin: ${this.formatPercentage(operatingMargin)}`
     };
   }
@@ -144,18 +81,13 @@ export class FundamentalsService {
     const earningsGrowth = metrics.earnings_growth;
     const bookValueGrowth = metrics.book_value_growth;
 
-    const thresholds: [number | null, number][] = [
-      [revenueGrowth, 0.10],    // 10% revenue growth
-      [earningsGrowth, 0.10],   // 10% earnings growth
-      [bookValueGrowth, 0.10],  // 10% book value growth
-    ];
-
-    const growthScore = thresholds.reduce((score, [metric, threshold]) => 
-      score + (metric !== null && metric > threshold ? 1 : 0), 0);
-
     return {
-      signal: growthScore >= 2 ? 'bullish' : growthScore === 0 ? 'bearish' : 'neutral',
-      details: `Revenue Growth: ${this.formatPercentage(revenueGrowth)}, Earnings Growth: ${this.formatPercentage(earningsGrowth)}`
+      signal: this.scoreChecks([
+        [revenueGrowth, v => v > 0.10],    // 10% revenue growth
+        [earningsGrowth, v => v > 0.10],   // 10% earnings growth
+        [bookValueGrowth, v => v > 0.10]   // 10% book value growth
+      ]),
+      details: `Revenue Growth: ${this.formatPercentage(revenueGrowth)}, Earnings Growth: ${this.formatPercentage(earningsGrowth)}, Book Value Growth: ${this.formatPercentage(bookValueGrowth)}`
     };
   }
 
@@ -168,24 +100,18 @@ export class FundamentalsService {
     const freeCashFlowPerShare = metrics.free_cash_flow_per_share;
     const earningsPerShare = metrics.earnings_per_share;
 
-    let healthScore = 0;
-    
-    if (currentRatio !== null && currentRatio > 1.5) {
-      healthScore += 1;
-    }
-    
-    if (debtToEquity !== null && debtToEquity < 0.5) {
-      healthScore += 1;
-    }
-    
-    if (freeCashFlowPerShare !== null && earningsPerShare !== null && 
-        freeCashFlowPerShare > earningsPerShare * 0.8) {
-      healthScore += 1;
-    }
+    // Free cash flow should cover at least 80% of earnings
+    const cashConversion = freeCashFlowPerShare !== null && earningsPerShare !== null && earningsPerShare !== 0
+      ? freeCashFlowPerShare / earningsPerShare
+      : null;
 
     return {
-      signal: healthScore >= 2 ? 'bullish' : healthScore === 0 ? 'bearish' : 'neutral',
-      details: `Current Ratio: ${this.formatRatio(currentRatio)}, D/E: ${this.formatRatio(debtToEquity)}`
+      signal: this.scoreChecks([
+        [currentRatio, v => v > 1.5],
+        [debtToEquity, v => v < 0.5],
+        [cashConversion, v => v > 0.8]
+      ]),
+      details: `Current Ratio: ${this.formatRatio(currentRatio)}, D/E: ${this.formatRatio(debtToEquity)}, FCF/EPS: ${this.formatRatio(cashConversion)}`
     };
   }
 
@@ -197,19 +123,13 @@ export class FundamentalsService {
     const pbRatio = metrics.price_to_book_ratio;
     const psRatio = metrics.price_to_sales_ratio;
 
-    const thresholds: [number | null, number][] = [
-      [peRatio, 25], // Reasonable P/E ratio
-      [pbRatio, 3],  // Reasonable P/B ratio
-      [psRatio, 5],  // Reasonable P/S ratio
-    ];
-
-    // Notice we're checking if the ratio is LESS THAN the threshold for valuation metrics
     // Lower P/E, P/B, P/S ratios generally indicate better value
-    const priceRatioScore = thresholds.reduce((score, [metric, threshold]) => 
-      score + (metric !== null && metric < threshold ? 1 : 0), 0);
-
     return {
-      signal: priceRatioScore >= 2 ? 'bullish' : priceRatioScore === 0 ? 'bearish' : 'neutral',
+      signal: this.scoreChecks([
+        [peRatio, v => v > 0 && v < 25], // Reasonable P/E ratio
+        [pbRatio, v => v > 0 && v < 3],  // Reasonable P/B ratio
+        [psRatio, v => v > 0 && v < 5]   // Reasonable P/S ratio
+      ]),
       details: `P/E: ${this.formatRatio(peRatio)}, P/B: ${this.formatRatio(pbRatio)}, P/S: ${this.formatRatio(psRatio)}`
     };
   }
@@ -217,25 +137,24 @@ export class FundamentalsService {
   /**
    * Calculates overall signal based on individual signals
    */
-  private calculateOverallSignal(signals: string[]): { signal: string; confidence: number } {
+  private calculateOverallSignal(signals: SignalDirection[]): { signal: SignalDirection; confidence: number } {
     const bullishSignals = signals.filter(s => s === 'bullish').length;
     const bearishSignals = signals.filter(s => s === 'bearish').length;
-    
-    let signal = 'neutral';
+
+    let signal: SignalDirection = 'neutral';
     if (bullishSignals > bearishSignals) {
       signal = 'bullish';
     } else if (bearishSignals > bullishSignals) {
       signal = 'bearish';
     }
-    
-    const totalSignals = signals.length;
-    const confidence = Math.round((Math.max(bullishSignals, bearishSignals) / totalSignals) * 100);
-    
+
+    const confidence = Math.round((Math.max(bullishSignals, bearishSignals) / signals.length) * 100);
+
     return { signal, confidence };
   }
 
   /**
-   * Formats a number as a percentage string
+   * Formats a fraction as a percentage string
    */
   private formatPercentage(value: number | null): string {
     return value !== null ? `${(value * 100).toFixed(2)}%` : 'N/A';

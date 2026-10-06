@@ -1,95 +1,75 @@
-import { ProgressService } from './progress.service';
-import { OpenAIService } from './openai.service';
-import { AgentState, AnalystSignal } from '../data/models';
+import { AnalystSignal, Portfolio, PortfolioDecision, RiskAnalysisResult, SignalDirection, TradeAction } from '../data/models';
+import { clamp } from './analysis.util';
+import { createLlmService, LlmService } from './llm';
 
-export interface PortfolioDecision {
-  action: 'buy' | 'sell' | 'hold';
-  quantity: number;
-  confidence: number;
-  reasoning: string;
+type SignalSummary = Pick<AnalystSignal, 'signal' | 'confidence'>;
+
+// analyst -> ticker -> signal
+export type AnalystSignals = Record<string, Record<string, SignalSummary>>;
+
+export interface PortfolioManagementRequest {
+  tickers: string[];
+  analyst_signals: AnalystSignals;
+  risk: Record<string, RiskAnalysisResult>;
+  portfolio: Portfolio;
 }
 
-export interface RiskData {
-  remaining_position_limit: number;
-  current_price: number;
+export interface PortfolioManagementResult {
+  decisions: Record<string, PortfolioDecision>;
+  // Whether the decisions came from the language model or the built-in rules
+  source: 'llm' | 'rules';
+  note?: string;
 }
+
+// Weights used by the rule-based decision; analysts without a weight get the default
+const ANALYST_WEIGHTS: Record<string, number> = {
+  fundamentals: 0.30,
+  technicals: 0.25,
+  valuation: 0.25,
+  sentiment: 0.20
+};
+const DEFAULT_ANALYST_WEIGHT = 0.20;
+
+// Combined score needed before trading, and the score at which the full size is used
+const TRADE_THRESHOLD = 0.15;
+const FULL_SIZE_SCORE = 0.5;
+
+const SIGNAL_VALUES: Record<SignalDirection, number> = { bullish: 1, neutral: 0, bearish: -1 };
 
 export class PortfolioManagementService {
-  private progressService: ProgressService;
-  private openAIService: OpenAIService;
+  private llm: LlmService | null;
 
-  constructor(openAIApiKey?: string) {
-    this.progressService = new ProgressService();
-    this.openAIService = new OpenAIService(openAIApiKey);
+  constructor(llm: LlmService | null = createLlmService()) {
+    this.llm = llm;
   }
 
   /**
-   * Process analyst signals for a ticker
+   * Maximum shares that can be purchased within the position limit
    */
-  private async processAnalystSignals(
-    ticker: string,
-    analystSignals: AgentState['data']['analyst_signals']
-  ): Promise<{
-    signals: { [agent: string]: AnalystSignal };
-    riskData: RiskData;
-  }> {
-    const signals: { [agent: string]: AnalystSignal } = {};
+  private calculateMaxShares(risk: RiskAnalysisResult | undefined): number {
+    if (!risk || risk.current_price <= 0) return 0;
+    return Math.max(0, Math.floor(risk.remaining_position_limit / risk.current_price));
+  }
 
-    // Create a default riskData object
-    const defaultRiskData: RiskData = {
-      remaining_position_limit: 0,
-      current_price: 0
-    };
-
-    // Check if we have risk management data for this ticker
-    const riskManagementAgent = analystSignals['risk_management_agent'];
-    const riskManagementData = riskManagementAgent ? riskManagementAgent[ticker] : undefined;
-
-    // Safely extract the required properties if they exist
-    const remaining_position_limit = riskManagementData && 'remaining_position_limit' in riskManagementData
-      ? Number(riskManagementData.remaining_position_limit)
-      : 0;
-
-    const current_price = riskManagementData && 'current_price' in riskManagementData
-      ? Number(riskManagementData.current_price)
-      : 0;
-
-    // Create a RiskData object with the extracted values
-    const riskData: RiskData = {
-      remaining_position_limit,
-      current_price
-    };
-
+  private signalsForTicker(ticker: string, analystSignals: AnalystSignals): Record<string, SignalSummary> {
+    const signals: Record<string, SignalSummary> = {};
     for (const [agent, agentSignals] of Object.entries(analystSignals)) {
-      if (agent !== 'risk_management_agent' && ticker in agentSignals) {
-        signals[agent] = {
-          signal: agentSignals[ticker].signal || null,
-          confidence: agentSignals[ticker].confidence !== undefined ? agentSignals[ticker].confidence : null,
-          reasoning: agentSignals[ticker].reasoning || null,
-          max_position_size: null
-        };
+      const signal = agentSignals?.[ticker];
+      if (signal) {
+        signals[agent] = { signal: signal.signal, confidence: signal.confidence };
       }
     }
-
-    return { signals, riskData };
+    return signals;
   }
 
   /**
-   * Calculate maximum shares that can be purchased based on position limit
+   * Generate prompt for the language model to make portfolio decisions
    */
-  private calculateMaxShares(positionLimit: number, currentPrice: number): number {
-    return currentPrice > 0 ? Math.floor(positionLimit / currentPrice) : 0;
-  }
-
-  /**
-   * Generate prompt for OpenAI to make portfolio decisions
-   */
-  private generatePromptTemplate(data: {
-    signalsByTicker: { [ticker: string]: { [agent: string]: AnalystSignal } };
-    currentPrices: { [ticker: string]: number };
-    maxShares: { [ticker: string]: number };
-    portfolioCash: number;
-    portfolioPositions: AgentState['data']['portfolio']['positions'];
+  private generatePrompt(data: {
+    signalsByTicker: Record<string, Record<string, SignalSummary>>;
+    currentPrices: Record<string, number>;
+    maxShares: Record<string, number>;
+    portfolio: Portfolio;
   }): string {
     return `You are a portfolio manager making final trading decisions.
     Your job is to make trading decisions based on the team's analysis for multiple tickers.
@@ -113,23 +93,23 @@ export class PortfolioManagementService {
     ${JSON.stringify(data.maxShares, null, 2)}
 
     Here is the current portfolio:
-    Cash: ${data.portfolioCash.toFixed(2)}
-    Current Positions: ${JSON.stringify(data.portfolioPositions, null, 2)}
-    
+    Cash: ${data.portfolio.cash.toFixed(2)}
+    Current Positions: ${JSON.stringify(data.portfolio.positions, null, 2)}
+
     Output your final decisions in a JSON object with the ticker as the key and an object containing:
     - action: "buy", "sell", or "hold"
     - quantity: number of shares to buy or sell (0 for hold)
     - confidence: your confidence level from 0-100
     - reasoning: a brief explanation of your decision
-    
+
     Format your response as valid JSON only, with no other text:
     {
       "decisions": {
-        "TICKER1": { 
-          "action": "buy|sell|hold", 
-          "quantity": number, 
-          "confidence": number, 
-          "reasoning": "string" 
+        "TICKER1": {
+          "action": "buy|sell|hold",
+          "quantity": number,
+          "confidence": number,
+          "reasoning": "string"
         },
         ...more tickers
       }
@@ -137,110 +117,142 @@ export class PortfolioManagementService {
   }
 
   /**
-   * Make a decision using OpenAI
+   * Deterministic decision from the weighted analyst signals
    */
-  private async makeDecision(
-    prompt: string,
-    tickers: string[],
-    maxRetries: number = 3
-  ): Promise<{ [ticker: string]: PortfolioDecision }> {
-    for (let attempt = 0; attempt < maxRetries; attempt++) {
-      try {
-        const result = await this.openAIService.getCompletion<{ decisions: { [ticker: string]: PortfolioDecision } }>(prompt);
-        return result.decisions;
-      } catch (error) {
-        this.progressService.updateStatus(
-          'portfolio_management_agent',
-          null,
-          `Error - retry ${attempt + 1}/${maxRetries}`
-        );
+  public decideByRules(request: PortfolioManagementRequest): Record<string, PortfolioDecision> {
+    const decisions: Record<string, PortfolioDecision> = {};
 
-        if (attempt === maxRetries - 1) {
-          // Return safe default on final attempt
-          return tickers.reduce((acc, ticker) => {
-            acc[ticker] = {
-              action: 'hold',
-              quantity: 0,
-              confidence: 0,
-              reasoning: 'Error in portfolio management, defaulting to hold'
-            };
-            return acc;
-          }, {} as { [ticker: string]: PortfolioDecision });
+    for (const ticker of request.tickers) {
+      const signals = this.signalsForTicker(ticker, request.analyst_signals);
+      const agents = Object.keys(signals);
+
+      if (agents.length === 0) {
+        decisions[ticker] = { action: 'hold', quantity: 0, confidence: 0, reasoning: 'No analyst signals available' };
+        continue;
+      }
+
+      let weightedScore = 0;
+      let totalWeight = 0;
+      for (const agent of agents) {
+        const weight = ANALYST_WEIGHTS[agent] ?? DEFAULT_ANALYST_WEIGHT;
+        weightedScore += weight * (SIGNAL_VALUES[signals[agent].signal] ?? 0) * (signals[agent].confidence / 100);
+        totalWeight += weight;
+      }
+      const score = weightedScore / totalWeight;
+      const sizeFactor = Math.min(1, Math.abs(score) / FULL_SIZE_SCORE);
+      const summary = agents.map(agent => `${agent}: ${signals[agent].signal} (${signals[agent].confidence}%)`).join(', ');
+
+      let action: TradeAction = 'hold';
+      let quantity = 0;
+
+      if (score > TRADE_THRESHOLD) {
+        action = 'buy';
+        quantity = Math.floor(this.calculateMaxShares(request.risk[ticker]) * sizeFactor);
+      } else if (score < -TRADE_THRESHOLD) {
+        action = 'sell';
+        quantity = Math.ceil((request.portfolio.positions[ticker]?.shares || 0) * sizeFactor);
+      }
+
+      decisions[ticker] = {
+        action,
+        quantity,
+        confidence: Math.round(Math.abs(score) * 100),
+        reasoning: `Combined score ${score.toFixed(2)} from ${summary}`
+      };
+    }
+
+    return decisions;
+  }
+
+  /**
+   * Makes every decision respect the trading rules: buys are limited by the
+   * position limit and the remaining cash, sells by the shares held
+   */
+  public enforceConstraints(
+    decisions: Record<string, Partial<PortfolioDecision> | undefined>,
+    request: PortfolioManagementRequest
+  ): Record<string, PortfolioDecision> {
+    const result: Record<string, PortfolioDecision> = {};
+    let availableCash = request.portfolio.cash;
+
+    for (const ticker of request.tickers) {
+      const decision = decisions[ticker];
+      const requestedAction = String(decision?.action || 'hold').toLowerCase();
+      let action: TradeAction = requestedAction === 'buy' || requestedAction === 'sell' ? requestedAction : 'hold';
+      let quantity = Math.max(0, Math.floor(Number(decision?.quantity) || 0));
+      let reasoning = decision?.reasoning ? String(decision.reasoning) : 'No reasoning provided';
+
+      const price = request.risk[ticker]?.current_price || 0;
+
+      if (action === 'buy') {
+        const affordable = price > 0 ? Math.floor(availableCash / price) : 0;
+        const allowed = Math.min(this.calculateMaxShares(request.risk[ticker]), affordable);
+        if (quantity > allowed) {
+          reasoning += ` (reduced from ${quantity} to ${allowed} shares by position and cash limits)`;
+          quantity = allowed;
+        }
+        availableCash -= quantity * price;
+      } else if (action === 'sell') {
+        const held = request.portfolio.positions[ticker]?.shares || 0;
+        if (quantity > held) {
+          reasoning += ` (reduced from ${quantity} to ${held} shares held)`;
+          quantity = held;
         }
       }
+
+      if (action === 'hold' || quantity === 0) {
+        action = 'hold';
+        quantity = 0;
+      }
+
+      result[ticker] = {
+        action,
+        quantity,
+        confidence: clamp(Math.round(Number(decision?.confidence) || 0), 0, 100),
+        reasoning
+      };
     }
-    throw new Error('Failed to make portfolio decision');
+
+    return result;
   }
 
   /**
    * Manage portfolio based on analysis signals
    */
-  public async managePortfolio(state: AgentState): Promise<{
-    messages: any[];
-    data: AgentState['data'];
-  }> {
-    const { portfolio, analyst_signals, tickers } = state.data;
+  public async managePortfolio(request: PortfolioManagementRequest): Promise<PortfolioManagementResult> {
+    let note: string | undefined;
 
-    this.progressService.updateStatus('portfolio_management_agent', null, 'Analyzing signals');
+    if (this.llm) {
+      const signalsByTicker: Record<string, Record<string, SignalSummary>> = {};
+      const currentPrices: Record<string, number> = {};
+      const maxShares: Record<string, number> = {};
 
-    const signalsByTicker: { [ticker: string]: { [agent: string]: AnalystSignal } } = {};
-    const currentPrices: { [ticker: string]: number } = {};
-    const maxShares: { [ticker: string]: number } = {};
+      for (const ticker of request.tickers) {
+        signalsByTicker[ticker] = this.signalsForTicker(ticker, request.analyst_signals);
+        currentPrices[ticker] = request.risk[ticker]?.current_price || 0;
+        maxShares[ticker] = this.calculateMaxShares(request.risk[ticker]);
+      }
 
-    // Process signals for each ticker
-    for (const ticker of tickers) {
-      this.progressService.updateStatus(
-        'portfolio_management_agent',
-        ticker,
-        'Processing analyst signals'
-      );
+      try {
+        const prompt = this.generatePrompt({ signalsByTicker, currentPrices, maxShares, portfolio: request.portfolio });
+        const response = await this.llm.getCompletion<{ decisions?: Record<string, Partial<PortfolioDecision>> }>(prompt);
 
-      const { signals, riskData } = await this.processAnalystSignals(ticker, analyst_signals);
+        if (!response.decisions || typeof response.decisions !== 'object') {
+          throw new Error('The model response did not contain decisions');
+        }
 
-      signalsByTicker[ticker] = signals;
-      currentPrices[ticker] = riskData.current_price;
-      maxShares[ticker] = this.calculateMaxShares(
-        riskData.remaining_position_limit,
-        riskData.current_price
-      );
+        return { decisions: this.enforceConstraints(response.decisions, request), source: 'llm' };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        console.warn(`portfolio_management_agent: ${this.llm.provider} request failed, using rule-based decisions: ${message}`);
+        note = 'AI decision unavailable; rule-based decision used instead';
+      }
     }
-
-    this.progressService.updateStatus(
-      'portfolio_management_agent',
-      null,
-      'Preparing trading strategy'
-    );
-
-    const prompt = this.generatePromptTemplate({
-      signalsByTicker,
-      currentPrices,
-      maxShares,
-      portfolioCash: portfolio.cash,
-      portfolioPositions: portfolio.positions
-    });
-
-    this.progressService.updateStatus(
-      'portfolio_management_agent',
-      null,
-      'Making trading decisions with OpenAI'
-    );
-
-    const decisions = await this.makeDecision(prompt, tickers);
-
-    const message = {
-      content: JSON.stringify(decisions),
-      name: 'portfolio_management_agent'
-    };
-
-    if (state.metadata.show_reasoning) {
-      console.log('Portfolio Management Agent Reasoning:', decisions);
-    }
-
-    this.progressService.updateStatus('portfolio_management_agent', null, 'Done');
 
     return {
-      messages: [...state.messages, message],
-      data: state.data
+      decisions: this.enforceConstraints(this.decideByRules(request), request),
+      source: 'rules',
+      ...(note ? { note } : {})
     };
   }
 }
