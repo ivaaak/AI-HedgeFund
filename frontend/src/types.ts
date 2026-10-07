@@ -1,20 +1,18 @@
 // Node types
 export enum NodeType {
-  START = 'START',
+  DATA_COLLECTION = 'DATA_COLLECTION',
   ANALYST = 'ANALYST',
   RISK_MANAGER = 'RISK_MANAGER',
   PORTFOLIO_MANAGER = 'PORTFOLIO_MANAGER',
-  ACTION = 'ACTION',
-  DECISION = "DECISION",
-  DATA_COLLECTION = "DATA_COLLECTION"
+  ACTION = 'ACTION'
 }
 
-// Analyst types
+// Analyst types. The values are the keys the backend uses for analyst signals.
 export enum AnalystType {
-  FUNDAMENTAL = 'fundamental',
-  TECHNICAL = 'technical',
+  FUNDAMENTAL = 'fundamentals',
+  TECHNICAL = 'technicals',
   SENTIMENT = 'sentiment',
-  MACRO = 'macro'
+  VALUATION = 'valuation'
 }
 
 // Action types
@@ -24,21 +22,29 @@ export enum ActionType {
   HOLD = 'HOLD'
 }
 
-export interface AccountInfo {
-  username: string;
-  accountBalance: number;
-  portfolioValue: number;
-  lastLogin: string;
-  subscriptionTier: 'Free' | 'Premium' | 'Pro';
+export type SignalDirection = 'bullish' | 'bearish' | 'neutral';
+
+// One component of an analysis (e.g. profitability, momentum)
+export interface ReasoningEntry {
+  signal: SignalDirection;
+  details: string;
+  confidence?: number;
 }
 
-// Signal data
-export interface Signal {
-  analyst: AnalystType;
-  ticker: string;
-  value: number;  // -1 to 1 (bearish to bullish)
+// Result of one analyst for one ticker
+export interface AnalystSignal {
+  signal: SignalDirection;
   confidence: number;  // 0 to 100
+  reasoning: Record<string, ReasoningEntry>;
 }
+
+// Every analysis endpoint answers with results and errors keyed by ticker
+export interface AnalysisResponse<T> {
+  results: Record<string, T>;
+  errors: Record<string, string>;
+}
+
+export type AnalystSignals = Partial<Record<AnalystType, AnalysisResponse<AnalystSignal>>>;
 
 // Risk assessment data
 export interface RiskAnalysisReasoning {
@@ -47,39 +53,31 @@ export interface RiskAnalysisReasoning {
   position_limit: number;
   remaining_limit: number;
   available_cash: number;
+  annualized_volatility: number | null;
+  max_drawdown: number | null;
 }
 
 export interface RiskAnalysisResult {
   remaining_position_limit: number;
   current_price: number;
+  risk_score: number;  // 1 (calm) to 10 (very volatile)
   reasoning: RiskAnalysisReasoning;
 }
 
-export interface Recommendation {
-  technical_signal: string;
-  fundamental_signal: string;
-  combined_signal: string;
-  confidence: number;
+export type RiskAssessment = AnalysisResponse<RiskAnalysisResult>;
+
+// Portfolio decision from API
+export interface PortfolioDecision {
   action: 'buy' | 'sell' | 'hold';
-  shares: number;
-  estimated_value: number;
-  current_position_shares: number;
-  current_price: number;
-}
-
-export interface RiskAssessment {
-  riskScore: number;
-  factors: string[];
-  analysis: Record<string, RiskAnalysisResult>;
-  recommendations?: Record<string, Recommendation>;
-}
-
-// Portfolio decision
-export interface Decision {
-  action: ActionType;
-  ticker: string;
   quantity: number;
-  confidence: number;
+  confidence: number;  // 0 to 100
+  reasoning: string;
+}
+
+export interface DecisionResult {
+  decisions: Record<string, PortfolioDecision>;
+  source: 'llm' | 'rules';
+  note?: string;
 }
 
 // Performance point
@@ -90,36 +88,37 @@ export interface PerformancePoint {
 
 // Position details
 export interface Position {
-  ticker: string;
   shares: number;
-  avgPrice: number;
-  currentPrice: number;
+  avg_price: number;
+  current_price: number;
 }
 
-// Portfolio state
+export interface TradeRecord {
+  date: string;
+  ticker: string;
+  action: 'buy' | 'sell';
+  quantity: number;
+  price: number;
+  total: number;
+}
+
+// Paper trading portfolio state
 export interface Portfolio {
   cash: number;
   positions: Record<string, Position>;
-  value: number;
-  history: any[];
+  history: TradeRecord[];
+  initial_value: number;
 }
 
 // System state
 export interface SystemState {
   activeNodes: NodeType[];
-  signals: Record<AnalystType, Signal>;
+  signals: AnalystSignals;
   riskAssessment?: RiskAssessment;
-  decision?: Decision;
-  portfolio?: Portfolio;
+  decision?: DecisionResult;
+  portfolio: Portfolio;
   performance: PerformancePoint[];
-}
-
-// Portfolio decision from API
-export interface PortfolioDecision {
-  action: 'buy' | 'sell' | 'hold';
-  quantity: number;
-  confidence: number;
-  reasoning: string;
+  lastRun?: number;
 }
 
 export interface ProcessFlowConfig {
@@ -130,17 +129,19 @@ export interface ProcessFlowConfig {
   animationsEnabled: boolean;
 }
 
-
-
-// Define API response types
-export interface FundamentalsResponse {
-  messages: Array<{ content: string; name: string }>;
-  data: any;
-}
-
-export interface PortfolioResponse {
-  messages: Array<{ content: string; name: string }>;
-  data: any;
+// Response of the full pipeline (POST /api/hedge-fund/run)
+export interface HedgeFundRunResponse {
+  tickers: string[];
+  start_date: string;
+  end_date: string;
+  analyst_signals: Record<AnalystType, AnalysisResponse<AnalystSignal>>;
+  risk: RiskAssessment;
+  decisions: Record<string, PortfolioDecision>;
+  decision_source: 'llm' | 'rules';
+  decision_note?: string;
+  trades: TradeRecord[];
+  skipped_trades: Array<{ ticker: string; reason: string }>;
+  portfolio: Portfolio;
 }
 
 export interface PriceData {
@@ -152,6 +153,7 @@ export interface PriceData {
   volume: number;
 }
 
+// Ratios, margins and growth rates are fractions (0.15 = 15%)
 export interface FinancialMetric {
   ticker: string;
   calendar_date: string;
@@ -203,5 +205,6 @@ export interface LineItem {
   ticker: string;
   report_period: string;
   period: string;
-  [key: string]: any; // Dynamic line items
+  currency: string;
+  [key: string]: string | number | null; // Requested line items
 }

@@ -1,62 +1,32 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import styles from './ProcessFlow.module.css';
-import { ActionType, Decision } from './types';
+import NodeInfo from './NodeInfo';
+import { DecisionResult, Portfolio } from './types';
+import { portfolioAllocation } from './portfolio';
 
 interface PortfolioManagerNodeProps {
   id: string;
   isActive: boolean;
-  decision?: Decision;
-  portfolioMetrics?: {
-    allocation: Array<{ ticker: string, percentage: number }>;
-    performance: number;
-    drawdown: number;
-  };
+  decision?: DecisionResult;
+  portfolio: Portfolio;
 }
 
 const PortfolioManagerNode: React.FC<PortfolioManagerNodeProps> = ({
   id,
   isActive,
   decision,
-  portfolioMetrics
+  portfolio
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [showTooltip, setShowTooltip] = useState(false);
-  const tooltipTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Cleanup tooltip timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (tooltipTimeoutRef.current) {
-        clearTimeout(tooltipTimeoutRef.current);
-      }
-    };
-  }, []);
+  const decisions = Object.entries(decision?.decisions || {});
+  const allocation = portfolioAllocation(portfolio);
 
   const toggleExpand = (e: React.MouseEvent) => {
     if (!(e.target as HTMLElement).closest(`.${styles.infoButton}`)) {
       setIsExpanded(!isExpanded);
     }
   };
-
-  // Sample portfolio allocation data if none provided
-  const portfolioAllocation = portfolioMetrics?.allocation || [
-    { ticker: 'AAPL', percentage: 25 },
-    { ticker: 'MSFT', percentage: 30 },
-    { ticker: 'AMZN', percentage: 20 },
-    { ticker: 'Cash', percentage: 25 }
-  ];
-
-  const mockDecisions: Decision =
-  {
-    action: ActionType.BUY,
-    ticker: 'AAPL',
-    quantity: 15,
-    confidence: 0.87
-  };
-
-  if (!decision) {
-    decision = mockDecisions;
-  }
 
   return (
     <div className={styles.nodeWrapper} id={id}>
@@ -68,50 +38,16 @@ const PortfolioManagerNode: React.FC<PortfolioManagerNodeProps> = ({
           <div className={styles.headerLeft}>
             <h3>Portfolio Manager</h3>
             {isActive && <span className={styles.statusIndicator}></span>}
-            <button
-              className={styles.infoButton}
-              aria-label="Node Information"
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowTooltip(!showTooltip);
-              }}
-              onMouseEnter={() => {
-                if (tooltipTimeoutRef.current) {
-                  clearTimeout(tooltipTimeoutRef.current);
-                }
-                setShowTooltip(true);
-              }}
-              onMouseLeave={() => {
-                tooltipTimeoutRef.current = setTimeout(() => {
-                  setShowTooltip(false);
-                }, 300);
-              }}
-            >
-              ?
-              <div className={`${styles.nodeTooltip} ${showTooltip ? styles.visible : ''}`}>
-                <div className={styles.tooltipTitle}>Portfolio Manager</div>
-                <div className={styles.tooltipRow}>
-                  <span className={styles.tooltipLabel}>Function:</span>
-                  <span>Portfolio Decision Making</span>
-                </div>
-                <div className={styles.tooltipRow}>
-                  <span className={styles.tooltipLabel}>Endpoint:</span>
-                  <span>/api/portfolio/manage</span>
-                </div>
-                <div className={styles.tooltipRow}>
-                  <span className={styles.tooltipLabel}>Input:</span>
-                  <span>Analyst signals, risk assessment</span>
-                </div>
-                <div className={styles.tooltipRow}>
-                  <span className={styles.tooltipLabel}>Output:</span>
-                  <span>Trading decisions with quantities</span>
-                </div>
-                <div className={styles.tooltipRow}>
-                  <span className={styles.tooltipLabel}>Description:</span>
-                  <span>Determines optimal portfolio adjustments</span>
-                </div>
-              </div>
-            </button>
+            <NodeInfo
+              title="Portfolio Manager"
+              rows={[
+                ['Function', 'Portfolio Decision Making'],
+                ['Endpoint', '/api/portfolio/manage'],
+                ['Input', 'Analyst signals, risk assessment'],
+                ['Output', 'Trading decisions with quantities'],
+                ['Description', 'Decides with the configured AI model, or with weighted rules when none is available']
+              ]}
+            />
           </div>
           <button
             className={styles.expandButton}
@@ -124,77 +60,59 @@ const PortfolioManagerNode: React.FC<PortfolioManagerNodeProps> = ({
           </button>
         </div>
 
-        {mockDecisions ? (
+        {decision ? (
           <div className={styles.decision}>
-            <div className={styles.decisionRow}> Decision :
-              <div className={`${styles.actionBadge} ${styles[decision.action.toLowerCase()]}`}>
-                {decision.action}
-              </div>
-            </div>
-            <div className={styles.decisionDetails}>
-              <div>Ticker: <strong>{decision.ticker}</strong></div>
-              <div>Quantity: <strong>{decision.quantity}</strong></div>
-              <div>Confidence: <strong>{decision.confidence.toFixed(1)}%</strong></div>
-            </div>
-
-            {isExpanded && (
-              <div className={styles.expandedContent}>
-                <div className={styles.portfolioAllocation}>
-                  <h4>Current Allocation</h4>
-                  <div className={styles.allocationBars}>
-                    {portfolioAllocation.map(item => (
-                      <div key={item.ticker} className={styles.allocationItem}>
-                        <div className={styles.allocationLabel}>
-                          <span>{item.ticker}</span>
-                          <span>{item.percentage}%</span>
-                        </div>
-                        <div className={styles.allocationBarContainer}>
-                          <div
-                            className={styles.allocationBar}
-                            style={{ width: `${item.percentage}%` }}
-                          ></div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  <div className={styles.portfolioStats}>
-                    <div className={styles.stat}>
-                      <span>Performance:</span> {portfolioMetrics?.performance?.toFixed(2) || '+2.3'}%
-                    </div>
-                    <div className={styles.stat}>
-                      <span>Max Drawdown:</span> {portfolioMetrics?.drawdown?.toFixed(2) || '4.7'}%
-                    </div>
-                  </div>
+            <div className={styles.tickerRows}>
+              {decisions.map(([ticker, tickerDecision]) => (
+                <div key={ticker} className={styles.tickerRow}>
+                  <strong>{ticker}</strong>
+                  <span className={`${styles.signalBadge} ${styles[tickerDecision.action]}`}>
+                    {tickerDecision.action}
+                    {tickerDecision.quantity > 0 ? ` ${tickerDecision.quantity}` : ''}
+                  </span>
+                  <span className={styles.rowValue}>{tickerDecision.confidence}%</span>
                 </div>
-              </div>
-            )}
+              ))}
+            </div>
+            <div className={styles.decisionSource} title={decision.note}>
+              {decision.source === 'llm' ? 'Decided by AI model' : 'Rule-based decision'}
+            </div>
           </div>
         ) : (
-          <div className={styles.placeholder}>
-            No decision data
-            {isExpanded && portfolioAllocation && (
-              <div className={styles.expandedContent}>
-                <div className={styles.portfolioAllocation}>
-                  <h4>Current Allocation</h4>
-                  <div className={styles.allocationBars}>
-                    {portfolioAllocation.map(item => (
-                      <div key={item.ticker} className={styles.allocationItem}>
-                        <div className={styles.allocationLabel}>
-                          <span>{item.ticker}</span>
-                          <span>{item.percentage}%</span>
-                        </div>
-                        <div className={styles.allocationBarContainer}>
-                          <div
-                            className={styles.allocationBar}
-                            style={{ width: `${item.percentage}%` }}
-                          ></div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+          <div className={styles.placeholder}>No decision data</div>
+        )}
+
+        {isExpanded && (
+          <div className={styles.expandedContent}>
+            {decision?.note && <div className={styles.reasoningDetailText}>{decision.note}</div>}
+            {decisions.map(([ticker, tickerDecision]) => (
+              <div key={ticker} className={styles.reasoningSection}>
+                <div className={styles.reasoningHeader}>
+                  <span>{ticker}</span>
                 </div>
+                <div className={styles.reasoningDetailText}>{tickerDecision.reasoning}</div>
               </div>
-            )}
+            ))}
+
+            <div className={styles.portfolioAllocation}>
+              <h4>Current Allocation</h4>
+              <div className={styles.allocationBars}>
+                {allocation.map(item => (
+                  <div key={item.ticker} className={styles.allocationItem}>
+                    <div className={styles.allocationLabel}>
+                      <span>{item.ticker}</span>
+                      <span>{item.percentage.toFixed(1)}%</span>
+                    </div>
+                    <div className={styles.allocationBarContainer}>
+                      <div
+                        className={styles.allocationBar}
+                        style={{ width: `${item.percentage}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         )}
       </div>

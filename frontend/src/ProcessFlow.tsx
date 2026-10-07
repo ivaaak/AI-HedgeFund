@@ -21,22 +21,17 @@ interface ProcessFlowProps {
   endDate: string;
   isLoading: boolean;
   config: ProcessFlowConfig;
-  onNodeClick?: (nodeType: NodeType) => void;
 }
 
 // Node IDs for connections
 const NODE_IDS = {
   DATA_COLLECTION: 'data-collection-node',
-  ANALYST_FUNDAMENTAL: 'analyst-node-fundamental',
-  ANALYST_TECHNICAL: 'analyst-node-technical',
-  ANALYST_SENTIMENT: 'analyst-node-sentiment',
-  ANALYST_MACRO: 'analyst-node-macro',
   RISK_MANAGER: 'risk-manager-node',
-  PORTFOLIO_MANAGER: 'portfolio-manager-node',
-  ACTION_BUY: 'action-node-buy',
-  ACTION_SELL: 'action-node-sell',
-  ACTION_HOLD: 'action-node-hold'
+  PORTFOLIO_MANAGER: 'portfolio-manager-node'
 };
+
+const analystNodeId = (type: AnalystType) => `analyst-node-${type}`;
+const actionNodeId = (type: ActionType) => `action-node-${type.toLowerCase()}`;
 
 const ProcessFlow: React.FC<ProcessFlowProps> = ({
   systemState,
@@ -51,9 +46,16 @@ const ProcessFlow: React.FC<ProcessFlowProps> = ({
     return systemState.activeNodes.includes(nodeType);
   };
 
+  const analystTypes = Object.values(AnalystType);
+  const actionTypes = Object.values(ActionType);
+
+  const decisionsFor = (type: ActionType) =>
+    Object.entries(systemState.decision?.decisions || {})
+      .filter(([, decision]) => decision.action.toUpperCase() === type);
+
   return (
     <div className={styles.processFlowContainer}>
-      <div className={styles.processFlow}>
+      <div className={`${styles.processFlow} ${config.animationsEnabled ? '' : styles.noAnimations}`}>
         {/* Data Collection section - always visible */}
         <div className={styles.processSection}>
           <div className={styles.sectionTitle}>
@@ -70,157 +72,111 @@ const ProcessFlow: React.FC<ProcessFlowProps> = ({
             />
           </div>
         </div>
-        
+
         {/* Analysis section */}
         {config.showAnalyst && (
-          <>
-            <div className={styles.processSection}>
-              <div className={styles.sectionTitle}>
-                <h2>Analysis</h2>
-              </div>
-              <div className={styles.sectionContent}>
-                <div className={styles.analystsGrid}>
-                  {Object.values(AnalystType).map((type) => (
-                    <AnalystNode
-                      key={type}
-                      id={`analyst-node-${type.toLowerCase()}`}
-                      type={type as any}
-                      signal={systemState.signals[type]}
-                      isActive={isNodeActive(NodeType.ANALYST)}
-                    />
-                  ))}
-                </div>
+          <div className={styles.processSection}>
+            <div className={styles.sectionTitle}>
+              <h2>Analysis</h2>
+            </div>
+            <div className={styles.sectionContent}>
+              <div className={styles.analystsGrid}>
+                {analystTypes.map(type => (
+                  <AnalystNode
+                    key={type}
+                    id={analystNodeId(type)}
+                    type={type}
+                    analysis={systemState.signals[type]}
+                    isActive={isNodeActive(NodeType.ANALYST) && Boolean(systemState.signals[type])}
+                  />
+                ))}
               </div>
             </div>
-          </>
+          </div>
         )}
-        
+
         {/* Risk Management section */}
         {config.showRiskManager && (
-          <>
-            <div className={styles.processSection}>
-              <div className={styles.sectionTitle}>
-                <h2>Risk Management</h2>
-              </div>
-              <div className={styles.sectionContent}>
-                <RiskManagerNode
-                  id={NODE_IDS.RISK_MANAGER}
-                  isActive={isNodeActive(NodeType.RISK_MANAGER)}
-                  riskAssessment={systemState.riskAssessment}
-                />
-              </div>
+          <div className={styles.processSection}>
+            <div className={styles.sectionTitle}>
+              <h2>Risk Management</h2>
             </div>
-          </>
+            <div className={styles.sectionContent}>
+              <RiskManagerNode
+                id={NODE_IDS.RISK_MANAGER}
+                isActive={isNodeActive(NodeType.RISK_MANAGER)}
+                riskAssessment={systemState.riskAssessment}
+              />
+            </div>
+          </div>
         )}
-        
+
         {/* Portfolio Management section */}
         {config.showPortfolioManager && (
-          <>
-            <div className={styles.processSection}>
-              <div className={styles.sectionTitle}>
-                <h2>Portfolio Management</h2>
-              </div>
-              <div className={styles.sectionContent}>
-                <PortfolioManagerNode
-                  id={NODE_IDS.PORTFOLIO_MANAGER}
-                  isActive={isNodeActive(NodeType.PORTFOLIO_MANAGER)}
-                  decision={systemState.decision}
-                />
-              </div>
+          <div className={styles.processSection}>
+            <div className={styles.sectionTitle}>
+              <h2>Portfolio Management</h2>
             </div>
-          </>
+            <div className={styles.sectionContent}>
+              <PortfolioManagerNode
+                id={NODE_IDS.PORTFOLIO_MANAGER}
+                isActive={isNodeActive(NodeType.PORTFOLIO_MANAGER)}
+                decision={systemState.decision}
+                portfolio={systemState.portfolio}
+              />
+            </div>
+          </div>
         )}
-        
+
         {/* Action section */}
         {config.showDecision && (
-          <>
-            <div className={styles.processSection}>
-              <div className={styles.sectionTitle}>
-                <h2>Action</h2>
-              </div>
-              <div className={styles.sectionContent}>
-                <div className={styles.actionsGrid}>
-                  {Object.values(ActionType).map(type => (
-                    <ActionNode
-                      key={type}
-                      id={`action-node-${type.toLowerCase()}`}
-                      type={type}
-                      isActive={systemState.decision?.action === type}
-                      quantity={systemState?.decision?.quantity}
-                    />
-                  ))}
-                </div>
+          <div className={styles.processSection}>
+            <div className={styles.sectionTitle}>
+              <h2>Action</h2>
+            </div>
+            <div className={styles.sectionContent}>
+              <div className={styles.actionsGrid}>
+                {actionTypes.map(type => (
+                  <ActionNode
+                    key={type}
+                    id={actionNodeId(type)}
+                    type={type}
+                    decisions={isNodeActive(NodeType.ACTION) ? decisionsFor(type) : []}
+                    history={systemState.portfolio.history.filter(trade => trade.action.toUpperCase() === type)}
+                  />
+                ))}
               </div>
             </div>
-          </>
+          </div>
         )}
 
         {/* Connection Lines */}
         {/* Data Collection to Analysts */}
-        {config.showAnalyst && (
-          <>
-            <ConnectionLine 
-              sourceId={NODE_IDS.DATA_COLLECTION} 
-              targetId={NODE_IDS.ANALYST_FUNDAMENTAL}
-              type="analyst"
-              isActive={isNodeActive(NodeType.DATA_COLLECTION) && isNodeActive(NodeType.ANALYST)}
-            />
-            <ConnectionLine 
-              sourceId={NODE_IDS.DATA_COLLECTION} 
-              targetId={NODE_IDS.ANALYST_TECHNICAL}
-              type="analyst"
-              isActive={isNodeActive(NodeType.DATA_COLLECTION) && isNodeActive(NodeType.ANALYST)}
-            />
-            {/* Adding connections to other analyst types too */}
-            <ConnectionLine 
-              sourceId={NODE_IDS.DATA_COLLECTION} 
-              targetId={NODE_IDS.ANALYST_SENTIMENT}
-              type="analyst"
-              isActive={isNodeActive(NodeType.DATA_COLLECTION) && isNodeActive(NodeType.ANALYST)}
-            />
-            <ConnectionLine 
-              sourceId={NODE_IDS.DATA_COLLECTION} 
-              targetId={NODE_IDS.ANALYST_MACRO}
-              type="analyst"
-              isActive={isNodeActive(NodeType.DATA_COLLECTION) && isNodeActive(NodeType.ANALYST)}
-            />
-          </>
-        )}
+        {config.showAnalyst && analystTypes.map(type => (
+          <ConnectionLine
+            key={`data-${type}`}
+            sourceId={NODE_IDS.DATA_COLLECTION}
+            targetId={analystNodeId(type)}
+            type="analyst"
+            isActive={isNodeActive(NodeType.DATA_COLLECTION) && isNodeActive(NodeType.ANALYST) && Boolean(systemState.signals[type])}
+          />
+        ))}
 
         {/* Analysts to Risk Manager */}
-        {config.showAnalyst && config.showRiskManager && (
-          <>
-            <ConnectionLine 
-              sourceId={NODE_IDS.ANALYST_FUNDAMENTAL} 
-              targetId={NODE_IDS.RISK_MANAGER}
-              type="risk"
-              isActive={isNodeActive(NodeType.ANALYST) && isNodeActive(NodeType.RISK_MANAGER)}
-            />
-            <ConnectionLine 
-              sourceId={NODE_IDS.ANALYST_TECHNICAL} 
-              targetId={NODE_IDS.RISK_MANAGER}
-              type="risk"
-              isActive={isNodeActive(NodeType.ANALYST) && isNodeActive(NodeType.RISK_MANAGER)}
-            />
-            <ConnectionLine 
-              sourceId={NODE_IDS.ANALYST_SENTIMENT} 
-              targetId={NODE_IDS.RISK_MANAGER}
-              type="risk"
-              isActive={isNodeActive(NodeType.ANALYST) && isNodeActive(NodeType.RISK_MANAGER)}
-            />
-            <ConnectionLine 
-              sourceId={NODE_IDS.ANALYST_MACRO} 
-              targetId={NODE_IDS.RISK_MANAGER}
-              type="risk"
-              isActive={isNodeActive(NodeType.ANALYST) && isNodeActive(NodeType.RISK_MANAGER)}
-            />
-          </>
-        )}
+        {config.showAnalyst && config.showRiskManager && analystTypes.map(type => (
+          <ConnectionLine
+            key={`risk-${type}`}
+            sourceId={analystNodeId(type)}
+            targetId={NODE_IDS.RISK_MANAGER}
+            type="risk"
+            isActive={isNodeActive(NodeType.ANALYST) && isNodeActive(NodeType.RISK_MANAGER) && Boolean(systemState.signals[type])}
+          />
+        ))}
 
         {/* Risk Manager to Portfolio Manager */}
         {config.showRiskManager && config.showPortfolioManager && (
-          <ConnectionLine 
-            sourceId={NODE_IDS.RISK_MANAGER} 
+          <ConnectionLine
+            sourceId={NODE_IDS.RISK_MANAGER}
             targetId={NODE_IDS.PORTFOLIO_MANAGER}
             type="portfolio"
             isActive={isNodeActive(NodeType.RISK_MANAGER) && isNodeActive(NodeType.PORTFOLIO_MANAGER)}
@@ -228,28 +184,15 @@ const ProcessFlow: React.FC<ProcessFlowProps> = ({
         )}
 
         {/* Portfolio Manager to Actions */}
-        {config.showPortfolioManager && config.showDecision && (
-          <>
-            <ConnectionLine 
-              sourceId={NODE_IDS.PORTFOLIO_MANAGER} 
-              targetId={NODE_IDS.ACTION_BUY}
-              type="action"
-              isActive={isNodeActive(NodeType.PORTFOLIO_MANAGER) && systemState.decision?.action === ActionType.BUY}
-            />
-            <ConnectionLine 
-              sourceId={NODE_IDS.PORTFOLIO_MANAGER} 
-              targetId={NODE_IDS.ACTION_SELL}
-              type="action"
-              isActive={isNodeActive(NodeType.PORTFOLIO_MANAGER) && systemState.decision?.action === ActionType.SELL}
-            />
-            <ConnectionLine 
-              sourceId={NODE_IDS.PORTFOLIO_MANAGER} 
-              targetId={NODE_IDS.ACTION_HOLD}
-              type="action"
-              isActive={isNodeActive(NodeType.PORTFOLIO_MANAGER) && systemState.decision?.action === ActionType.HOLD}
-            />
-          </>
-        )}
+        {config.showPortfolioManager && config.showDecision && actionTypes.map(type => (
+          <ConnectionLine
+            key={`action-${type}`}
+            sourceId={NODE_IDS.PORTFOLIO_MANAGER}
+            targetId={actionNodeId(type)}
+            type="action"
+            isActive={isNodeActive(NodeType.ACTION) && decisionsFor(type).length > 0}
+          />
+        ))}
       </div>
     </div>
   );

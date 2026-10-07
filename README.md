@@ -11,13 +11,11 @@ A Web App built with React as a Frontend and Express as a Backend. It uses AI-dr
 <img src="screenshots/3.png"></img>
 
 ### Getting Started:
-You need the following API keys to add to a .env file in the `backend` folder:
+Copy `backend/.env.example` to `backend/.env` and fill in the keys you have:
 ```cmd
-FINANCIAL_API_KEY= (Financial data provider API key)
-OPENAI_API_KEY= (OpenAI API key for advanced analysis)
-ATLAS_URI= (MongoDB connection string)
-API_KEY= (Your custom API key for securing endpoints)
-NODE_ENV= (development/production)
+ALPHA_VANTAGE_API_KEY= (Market data - required, a free key allows 25 requests per day)
+OPENAI_API_KEY= or ANTHROPIC_API_KEY= (optional - AI portfolio decisions, otherwise rule-based)
+API_KEY= and API_KEY_REQUIRED=true (optional - secures the endpoints)
 PORT= (default: 3000)
 ```
 
@@ -32,23 +30,22 @@ This installs and starts both the FE and BE using the npm tool 'concurrently'. O
 ### Built With:
 -  [**✔**]  `React (TypeScript)`
 -  [**✔**]  `Express API`
--  [**✔**]  `MongoDB`
--  [**✔**]  `OpenAI Integration`
+-  [**✔**]  `OpenAI / Claude Integration` (optional, with a rule-based fallback)
 -  [**✔**]  `Axios`
 -  [**✔**]  `Process Flow Visualization`
--  [**✔**]  `Financial Data APIs`
+-  [**✔**]  `Alpha Vantage Financial Data API`
 
 ### Features / `Analysis Modes`:
 - `Fundamental Analysis`
 - `Technical Analysis`
 - `Sentiment Analysis`
-- `Macro Analysis`
+- `Valuation Analysis`
 - Risk Management Visualization
 - Portfolio Decision Making
-- Performance Tracking
+- Paper Trading and Performance Tracking
 - Data Collection Nodes
 - Interactive Process Flow
-- Real-time Updates
+- Auto-refresh
 
 #### Not implemented yet / In Progress:
 - `Backtesting Engine` for strategy validation

@@ -1,125 +1,80 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import styles from './ProcessFlow.module.css';
-import { ActionType } from './types';
+import NodeInfo from './NodeInfo';
+import { ActionType, PortfolioDecision, TradeRecord } from './types';
 
 interface ActionNodeProps {
   id: string;
   type: ActionType;
-  isActive: boolean;
-  quantity?: number;
-  history?: Array<{timestamp: number, action: ActionType, ticker: string, quantity: number}>;
+  // Current decisions of this node's type, as [ticker, decision]
+  decisions: Array<[string, PortfolioDecision]>;
+  // Executed trades of this node's type, oldest first
+  history: TradeRecord[];
 }
 
-const ActionNode: React.FC<ActionNodeProps> = ({ 
+const ActionNode: React.FC<ActionNodeProps> = ({
   id,
-  type, 
-  isActive,
-  quantity,
-  history = []
+  type,
+  decisions,
+  history
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [showTooltip, setShowTooltip] = useState(false);
-  const tooltipTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  
-  // Cleanup tooltip timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (tooltipTimeoutRef.current) {
-        clearTimeout(tooltipTimeoutRef.current);
-      }
-    };
-  }, []);
-  
+
+  const isActive = decisions.length > 0;
+  const recentTrades = history.slice(-5).reverse();
+
   const toggleExpand = (e: React.MouseEvent) => {
     if (!(e.target as HTMLElement).closest(`.${styles.infoButton}`)) {
       setIsExpanded(!isExpanded);
     }
   };
 
-  // Filter history to show only actions matching this node's type
-  const filteredHistory = history.length > 0 
-    ? history.filter(item => item.action === type)
-    : [
-        { timestamp: Date.now() - 3600000 * 24 * 5, action: ActionType.BUY, ticker: 'AAPL', quantity: 50 },
-        { timestamp: Date.now() - 3600000 * 24 * 3, action: ActionType.SELL, ticker: 'MSFT', quantity: 25 },
-        { timestamp: Date.now() - 3600000 * 24 * 1, action: ActionType.HOLD, ticker: 'AMZN', quantity: 0 }
-      ].filter(item => item.action === type);
-
   return (
     <div className={styles.nodeWrapper} id={id}>
-      <div 
+      <div
         className={`${styles.node} ${styles.action} ${styles[type.toLowerCase()]} ${isActive ? styles.active : ''} ${isExpanded ? styles.expanded : ''}`}
         onClick={toggleExpand}
       >
         <div className={styles.actionHeader}>
           <div className={styles.actionType}>{type}</div>
-          <button 
-            className={styles.infoButton} 
-            aria-label="Action Information"
-            onClick={(e) => { 
-              e.stopPropagation();
-              setShowTooltip(!showTooltip);
-            }}
-            onMouseEnter={() => {
-              if (tooltipTimeoutRef.current) {
-                clearTimeout(tooltipTimeoutRef.current);
-              }
-              setShowTooltip(true);
-            }}
-            onMouseLeave={() => {
-              tooltipTimeoutRef.current = setTimeout(() => {
-                setShowTooltip(false);
-              }, 300);
-            }}
-          >
-            ?
-            <div className={`${styles.nodeTooltip} ${styles.tooltipBottom} ${showTooltip ? styles.visible : ''}`}>
-              <div className={styles.tooltipTitle}>{type} Action</div>
-              <div className={styles.tooltipRow}>
-                <span className={styles.tooltipLabel}>Execution:</span>
-                <span>Trade execution system</span>
-              </div>
-              <div className={styles.tooltipRow}>
-                <span className={styles.tooltipLabel}>Impact:</span>
-                <span>
-                  {type === 'BUY' ? 'Increases' : type === 'SELL' ? 'Decreases' : 'Maintains'} portfolio exposure
-                </span>
-              </div>
-              <div className={styles.tooltipRow}>
-                <span className={styles.tooltipLabel}>Triggers:</span>
-                <span>Order placement in trading system</span>
-              </div>
-              <div className={styles.tooltipRow}>
-                <span className={styles.tooltipLabel}>Constraints:</span>
-                <span>Subject to risk limits and rules</span>
-              </div>
-            </div>
-          </button>
+          <NodeInfo
+            title={`${type} Action`}
+            bottom
+            rows={[
+              ['Execution', 'Paper trade against the latest close'],
+              ['Impact', `${type === 'BUY' ? 'Increases' : type === 'SELL' ? 'Decreases' : 'Maintains'} portfolio exposure`],
+              ['Constraints', 'Subject to position limits, cash and shares held']
+            ]}
+          />
           {isActive && <span className={styles.statusIndicator}></span>}
         </div>
-        
+
         <div className={styles.actionContent}>
-          {isActive && quantity && <div className={styles.quantity}>Qty: {quantity}</div>}
+          {decisions.map(([ticker, decision]) => (
+            <div key={ticker} className={styles.quantity}>
+              {ticker}{decision.quantity > 0 ? ` × ${decision.quantity}` : ''}
+            </div>
+          ))}
         </div>
-        
-        {isExpanded && (
+
+        {isExpanded && type !== ActionType.HOLD && (
           <div className={styles.expandedContent}>
-            Recent {type} Actions:
+            Recent {type} trades:
             <div className={styles.actionHistory}>
-              {filteredHistory.map((item, index) => (
+              {recentTrades.map((trade, index) => (
                 <div key={index} className={styles.historyItem}>
-                  <div className={`${styles.historyBadge} ${styles[item.action.toLowerCase()]}`}>
-                    {item.action}
+                  <div className={`${styles.historyBadge} ${styles[trade.action]}`}>
+                    {trade.action.toUpperCase()}
                   </div>
                   <div className={styles.historyDetails}>
-                    <div>{item.ticker}</div>
-                    <div>{item.quantity > 0 ? `Qty: ${item.quantity}` : '-'}</div>
-                    <div>{new Date(item.timestamp).toLocaleDateString()}</div>
+                    <div>{trade.ticker}</div>
+                    <div>{trade.quantity} @ ${trade.price.toFixed(2)}</div>
+                    <div>{new Date(trade.date).toLocaleDateString()}</div>
                   </div>
                 </div>
               ))}
-              {filteredHistory.length === 0 && (
-                <div className={styles.emptyHistory}>No {type} actions found</div>
+              {recentTrades.length === 0 && (
+                <div className={styles.placeholder}>No {type} trades yet</div>
               )}
             </div>
           </div>
